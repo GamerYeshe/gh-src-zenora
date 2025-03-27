@@ -1,0 +1,496 @@
+// Zenora Multi Tool - ZX :: Written by Aphex
+
+// READ! - Notes - READ!
+// Remember to copy the IP addresses and note passwords and other important information often because this program uses clear_screen for the menus
+// Program begins under MainMenu()
+// Use option 1 on different ports (0 is router as last resort), then if obtained, user or root pass or access (decline start_terminal request first if it shows), then use option 3 to auto-upload files remotely using the user/root and pass, including nmap and ScanLan.exe (user access most likely doesn't clear logs after uploading and removing the files though - permission denied)
+// 
+
+// SELF REMINDER! - Improvement Goals - SELF REMINDER!
+// Easier upload and removal of files to help navigate deeper network (preferably with log clearing after uploading and removing actions) - DONE
+// Add decipher option either as user:pass hash in file or user:pass hashing - DONE
+// Organise the damn menu. A few un-needed submenus. (All exploits into one submenu at least). Clear Logs as a direct function call - DONE
+// Put UploadHack and RemoveHack into the same submenu and sort out their function params for future calls. - DONE
+// Put uploaded files in a hosted folder somewhere, and allow their permissions for guest BEFORE UPLOAD AND REMOVE incase of guest router access - IN PROGRESS (been doing it manually instead)
+// Fix the new_pass optional param for MainMenu option 1 (Remote & Local Hack), as it errors alphanumeric. and the local ip being invalid too! - IN PROGRESS
+// Integrate uploading files automatically using the result of overflow in "shell" result BEFORE start_terminal - IN PROGRESS
+// Huge NMAP customization overhaul - IN PROGRESS
+// Directory navigation with folder/file layout and permissions hierarchy - IN PROGRESS
+
+main_input = null
+upload_input = null
+logs_input = null
+ip_addr = null
+port_num = null
+opt_var = null
+metaLib = null
+comp = get_shell.host_computer.File("/")
+
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then
+	metaxploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not metaxploit then
+	exit("<color=#ff0000>Error: <color=#ffffff>Cannot find metaxploit library in lib or current path folder.</color>")
+	wait(2)
+end if
+
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then
+	exit("<color=#ff0000>Error: <color=#ffffff>Cannot find crypto library in lib or current path folder.</color>")
+	wait(2)
+end if
+
+ClearLogs = function(shell)
+	log_file = shell.host_computer.File("/var/system.log")
+	if not log_file then
+		print("<color=#ff0000>Error: <color=#ffffff>Log file does not exist.</color>")
+		wait(2)
+	end if
+	if log_file != null then
+		if not log_file.has_permission("r") then
+			print("<color=#ff0000>Error: <color=#ffffff>You are unauthorized to access the log file. Permission denied.</color>")
+			wait(2)
+		else
+			new_log = shell.host_computer.touch("/root/", "system.log")
+			if typeof(new_log) == "string" then
+				print("<color=#ff0000>Error: <color=#ffffff>Log file creation is unsuccessful! " + new_log + "</color>")
+				wait(2)
+			end if
+			select_log = shell.host_computer.File("/root/system.log")
+			move_log = select_log.move("/var/", "system.log")
+			if typeof(move_log) == "string" then
+				print("<color=#ff0000>Error: <color=#ffffff>Log file move to /var/ is unsuccessful! " + move_log + "</color>")
+				wait(2)
+				delete_result = select_log.delete
+				if typeof(delete_result) == "string" then
+					print("<color=#ff0000>Error: <color=#ffffff>Unable to remove created system.log file! " + delete_result + "</color>")
+					wait(2)
+				end if
+			else
+				print("<color=#399d22>Info: <color=#ffffff>Log file has been cleared successfully.</color>")
+				wait(2)
+				MainMenu()
+			end if
+		end if
+	else
+		print("<color=#ff0000>Error: <color=#ffffff>Log file is empty.</color>")
+		wait(2)
+	end if
+end function
+
+RemoteLocalHack = function()
+	print("<color=#fd573a>Target IP: </color>")
+	ip_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+	if is_valid_ip(ip_input) then
+		print("<color=#fd573a>Target Port: </color>")
+		port_input = user_input("<color=#ffffff>$> <color=#fd573a>").to_int
+		if typeof(port_input) == "number" then
+			opt_input = user_input("<color=#fd573a>New Password / LAN IP (Optional): </color>")
+			if opt_input then
+				opt_var = opt_input
+			else
+				opt_var = null
+			end if
+			ip_addr = ip_input
+					port_num = port_input
+					net_session = net_use(metaxploit, ip_addr, port_num)
+					if not net_session then
+						print("<color=#ff0000>Error: <color=#ffffff>Unable to connect to net session.</color>")
+						wait(2)
+						MainMenu()
+					end if
+					metaLib = net_session.dump_lib
+					BeginHack(metaLib)
+				else
+					print("<color=#ff0000>Error: <color=#ffffff>Please enter a valid number for port.</color>")
+					wait(2)
+				end if
+			else
+				print("<color=#ff0000>Error: <color=#ffffff>You have entered an invalid target IP address.</color>")
+				wait(2)
+			end if
+end function
+
+UploadResult = function(result)
+	if typeof(result) == "string" then
+   		print("<color=#ff0000>Error: <color=#ffffff>There was an issue uploading the file: " + result + "</color>")
+		wait(0.5)
+	else
+		print("<color=#399d22>Info: <color=#ffffff>File has been uploaded successfully.</color>")
+		wait(0.5)
+	end if
+end function
+
+UploadHack = function(target_ip, target_user, target_pass)
+	shell = get_shell
+	remote_shell = shell.connect_service(target_ip, 22, target_user, target_pass, "ssh")
+	if typeof(remote_shell) == "string" then
+		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH. Trying FTP...</color>")
+		wait(2)
+		remote_shell = shell.connect_service(target_ip, 21, target_user, target_pass, "ftp")
+	end if
+	if typeof(remote_shell) == "string" then
+		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH and FTP. Check credentials.</color>")
+		wait(2)
+	else
+		result = shell.scp(program_path.split("/")[-1], "/bin/", remote_shell)
+		wait(0.2)
+		UploadResult(result)
+		result = shell.scp("/bin/nmap", "/bin/", remote_shell)
+		wait(0.2)
+		UploadResult(result)
+		result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
+		wait(0.2)
+		UploadResult(result)
+		result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
+		wait(0.2)
+		UploadResult(result)
+		result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
+		wait(0.2)
+		UploadResult(result)
+		ClearLogs(remote_shell)
+	end if
+end function
+
+RemoveResult = function(result)
+	if result then
+   		if result.has_permission("r") then
+			result.delete
+			print("<color=#399d22>Info: <color=#ffffff>File has been deleted successfully.</color>")
+			wait(0.5)
+		else
+			print("<color=#ff0000>Error: <color=#ffffff>You are not authorized to access the " + result.path + " file. Permission denied.</color>")
+			wait(0.5)
+		end if
+	end if
+end function
+
+RemoveHack = function(target_ip, target_user, target_pass)
+	shell = get_shell
+	remote_shell = shell.connect_service(target_ip, 22, target_user, target_pass, "ssh")
+	if typeof(remote_shell) == "string" then
+		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH. Trying FTP...</color>")
+		wait(2)
+		remote_shell = shell.connect_service(target_ip, 21, target_user, target_pass, "ftp")
+	end if
+	if typeof(remote_shell) == "string" then
+		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH and FTP. Check credentials.</color>")
+		wait(2)
+	else
+		result = remote_shell.host_computer.File(program_path.split("/")[-1])
+		RemoveResult(result)
+		result = remote_shell.host_computer.File("/bin/nmap")
+		RemoveResult(result)
+		result = remote_shell.host_computer.File("/lib/crypto.so")
+		RemoveResult(result)
+		result = remote_shell.host_computer.File("/lib/metaxploit.so")
+		RemoveResult(result)
+		result = remote_shell.host_computer.File("/usr/bin/ScanLan.exe")
+		RemoveResult(result)
+		ClearLogs(remote_shell)
+	end if
+end function
+
+HackManagementMenu = function()
+	while true
+		clear_screen
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Remote Hack File Management Menu (Zenora Tool by Aphex)<color=#ffffff> #--]</b></color>")
+		print("\n")
+		print("<color=#ffffff>1) <color=#fd573a>Upload Hacks</color>")
+		print("<color=#ffffff>2) <color=#fd573a>Remove Hacks</color>")
+		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>")
+		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>")
+		management_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+		if management_input == "1" or management_input == "2" then
+			print("<color=#ffffff>Target IP: </color>")
+			ip_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+			if is_valid_ip(ip_input) then
+				print("<color=#ffffff>Target Username: </color>")
+				username_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+				if username_input then
+					print("<color=#ffffff>Target Password: </color>")
+					pass_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+					if pass_input then
+						if management_input == "1" then
+							UploadHack(ip_input, username_input, pass_input)
+						else
+							RemoveHack(ip_input, username_input, pass_input)
+						end if
+					else
+						print("<color=#ff0000>Error: <color=#ffffff>You have not entered a target user password.</color>")
+						wait(2)
+						continue
+					end if
+				else
+					print("<color=#ff0000>Error: <color=#ffffff>You have not entered a target username.</color>")
+					wait(2)
+					continue
+				end if
+			else
+				print("<color=#ff0000>Error: <color=#ffffff>You have entered an invalid target IP address.</color>")
+				continue
+			end if
+		else if management_input == "3" then
+			MainMenu()
+		else if management_input == "4" then
+			exit
+		end if
+end function
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then
+		return("<color=#ff0000>Error: <color=#ffffff>Decipher failed. Wrong syntax.")
+		wait(2)
+	end if
+	password = cryptools.decipher(userPass[1])
+	return password
+end function
+
+DecipherHash = function()
+	print("<color=#fd573a>Enter File/Hash: <color=#fd573a>")
+	decipher_hash = user_input("<color=#ffffff>$> <color=#fd573a>")
+	if decipher_hash then
+		file = get_shell.host_computer.File(decipher_hash)
+		if file then
+			if not file.has_permission("r") then
+				print("<color=#ff0000>Error: <color=#ffffff>You are not unauthorized to access file <b>" + decipher_hash + "</b>. Permission denied.</color>")
+				wait(2)
+			end if
+			if file.is_binary then
+				print("<color=#ff0000>Error: <color=#ffffff>Unable to read <b>" + decipher_hash + "</b> binary file.</color>")
+				wait(2)
+			end if
+			if file.get_content.len == 0 then
+				print("<color=#ff0000>Error: <color=#ffffff>File <b>" + decipher_hash + "</b> is empty.</color>")
+				wait(2)
+			end if
+			lines = file.get_content.split("\n")
+		else if decipher_hash.len > 33 then
+			lines = [decipher_hash]
+		else
+			print("<color=#ff0000>Error: <color=#ffffff>Cannot find decipher input: <b>" + decipher_hash + "</b></color>")
+			wait(2)
+		end if
+		for line in lines
+			userPass = line.split(":")
+			password = GetPassword(userPass)
+			if not password then
+				print("<color=#ff0000>Error: <color=#ffffff>Password not found.</color>")
+				wait(2)
+			else
+				print("Password: " + password) // There may be some issues from GetPassword() userPass.len wrong syntax with this
+						// print(password) -- Original
+				wait(2)
+				ContinueProgram()
+			end if
+		end for
+	else
+		print("<color=#ff0000>Error: <color=#ffffff>You must enter a decipher hash in format user:pass!</color>")
+	end if
+end function
+
+BeginHack = function(mLib)
+	pass = false
+	print("<color=#f1ef31><b>-- Scan started --</b></color>")
+	memories = metaxploit.scan(mLib)
+	for mem_addr in memories
+		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
+		if vuln_strings then
+			vuln_string = vuln_strings.split("Unsafe check: ")
+			for str in vuln_string
+				if str == vuln_string[0] then continue
+				if pass then continue
+				exploit = str[str.indexOf("<b>")+3:str.indexOf("</b>")]
+				if opt_var == null then
+					result = mLib.overflow(mem_addr, exploit)
+				else
+					result = mLib.overflow(mem_addr, exploit, opt_var)
+					if result then
+						print("<color=#399d22>Info: <color=#ffffff>New password: <b>"+opt_var+"</b></color>")
+						wait(2)
+					end if
+				end if
+				if not result then
+					print("<color=#ff0000>Error: <color=#ffffff>Attack unsuccessful!")
+					wait(0.2)
+					continue
+				end if
+				if typeof(result) == "shell" then
+					while true
+						print("<color=#fd573a>Start terminal? y/n</color>")
+						terminal_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+						if terminal_input == "y" then
+							result.start_terminal
+							exit
+						else if terminal_input == "n" then
+							break
+						else
+							continue
+						end if
+					end while	
+				else if typeof(result) == "computer" then
+					pass_file = result.File("/etc/passwd")
+					if not pass_file then
+						print("<color=#ff0000>Error: <color=#ffffff>Password file does not exist.</color>")
+						wait(2)
+						continue
+					end if
+					if pass_file != null then
+						if not pass_file.has_permission("r") then
+							print("<color=#ff0000>Error: <color=#ffffff>You are unauthorized to access the password file. Permission denied.</color>")
+							wait(2)
+							continue
+						else
+							print("<color=#399d22>Info: <color=#ffffff>Attempting to decipher password...</color>")
+							pass_content = result.File("/etc/passwd").get_content.split("\n")
+							pass = GetPassword(pass_content[0].split(":"))
+							print("<color=#399d22>Info: <color=#ffffff>Root password: <b>"+ pass +"</b></color>")
+							wait(2)
+						end if
+					else
+						print("<color=#ff0000>Error: <color=#ffffff>Password file is empty.</color>")
+						wait(2)
+						continue
+					end if
+				else if typeof(result) == "file" then
+					root_dir = result
+					while root_dir.path != "/"
+						root_dir = root_dir.parent
+					end while
+					for folder in root_dir.get_folders
+						if folder.name == "etc" then
+							etc_dir = folder
+							break
+						end if
+					end for
+					if not etc_dir.has_permission("r") then
+						print("<color=#ff0000>Error: <color=#ffffff>You are unauthorized to access the /etc/ folder. Permission denied.</color>")
+						wait(2)
+						continue
+					end if
+					for file in etc_dir.get_files
+						if file.name == "passwd" then
+							pass_file = file
+							break
+						end if
+					end for
+					if not pass_file then
+						print("<color=#ff0000>Error: <color=#ffffff>Password file does not exist.</color>")
+						wait(2)
+						continue
+					end if
+					if pass_file != null then
+						if not pass_file.has_permission("r") then
+							print("<color=#ff0000>Error: <color=#ffffff>You are unauthorized to access the password file. Permission denied.</color>")
+							wait(2)
+							continue
+						else
+							print("<color=#399d22>Info: <color=#ffffff>Attempting to decipher password...</color>")
+							pass_content = pass_file.get_content.split("\n")
+							pass = GetPassword(pass_content[0].split(":"))
+							print("<color=#399d22>Info: <color=#ffffff>Root password: <b>"+ pass +"</b></color>")
+							wait(2)
+						end if
+					else
+						print("<color=#ff0000>Error: <color=#ffffff>Password file is empty.</color>")
+						wait(2)
+						continue
+					end if
+				else
+					print("<color=#ff0000>Error: <color=#ffffff>Unsupported object returned!</color>")
+					wait(2)
+					continue	
+				end if
+			end for
+		else
+			print("<color=#ff0000>Error: <color=#ffffff>Failed to find vulnerabilities!</color>")
+			wait(2)
+		end if
+	end for
+
+	main_input = null
+	upload_input = null
+	logs_input = null
+	ip_addr = null
+	port_num = null
+	opt_var = null
+	metaLib = null
+	comp = get_shell.host_computer.File("/")
+
+	print("<color=#fd573a>Library: <color=#ffffff>"+mLib.lib_name+" <color=#fd573a>- Version: <color=#ffffff>"+mLib.version+"</color>")
+	print("<color=#f1ef31><b>-- Scan finished --</b></color>")
+	wait(2)
+	ContinueProgram()
+end function
+
+ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
+	while true
+		print("<color=#fd573a>Continue? y/n</color>")
+		continue_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+		if continue_input == "y" then
+			MainMenu()
+		else if continue_input == "n" then
+			exit
+		else
+			continue
+		end if
+	end while
+end function
+
+MainMenu = function() // MAIN MENU - FIRST MENU
+	while true
+		clear_screen
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Main Menu<color=#ffffff> #--]</b></color>")
+		print("<color=#ffffff>1) <color=#fd573a>Remote & Local IP Port Hack</color>") // the optional password input isn't currently working for overflow(mem, exp, optional pass). will fix soon. nor is the local ip as the third optional param... but can hack local ip from first param with port number. Or use local library exploit in main menu
+		print("<color=#ffffff>2) <color=#fd573a>Local Library Hack</color>") // enter for example init.so - it must be .so at the end
+		print("<color=#ffffff>3) <color=#fd573a>Remote Hack File Management (User/Root & Password)</color>") // Also clears all logs including disconnect logs after uploading and deleting required files (this hack, nmap, metaxploit.so, crypto.so, and ScanLan.exe). NEED TO WORK ON ADDING EACH FILE PERMISSIONS BEFORE UPLOAD, THEN REMOVE AFTER UPLOAD VIA CONNECT_SERVICE
+		print("<color=#ffffff>4) <color=#fd573a>Decipher Hash</color>") // File or hash decipher working
+		print("<color=#ffffff>5) <color=#fd573a>Clear Logs</color>") // Clears logs of whichever computer you're accessing (Root needed obviously)
+		print("<color=#ffffff>6) <color=#fd573a>Exit Program</color>")
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v1.0 by Aphex<color=#ffffff> #--]</b></color>")
+		main_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+		if main_input == "1" then
+			RemoteLocalHack()
+		else if main_input == "2" then
+			host_comp = get_shell.host_computer
+			local_input = user_input("<color=#ffffff>Local Library File (ex: init.so): <color=#fd573a>")
+			if local_input then
+				lib_file = host_comp.File("/lib/" + lib_input)
+				if lib_file then
+					if not lib_file.has_permission("r") then
+						print("<color=#ff0000>Error: <color=#ffffff>You are unauthorized to access the log file. Permission denied.</color>")
+						wait(2)
+						continue
+					else
+						metaLib = metaxploit.load("/lib/" + lib_input)
+						BeginHack(metaLib)
+					end if
+				else
+					print("<color=#ff0000>Error: <color=#ffffff>Library file does not exist.</color>")
+					wait(2)
+					continue
+				end if
+			else
+				continue
+			end if
+		else if main_input == "3" then
+			HackManagementMenu()
+		else if main_input == "4" then
+			DecipherHash()
+		else if main_input == "5" then
+			ClearLogs(get_shell)
+		else if main_input == "6" then
+			exit
+		else
+			continue
+		end if
+	end while
+end function
+
+if main_input == null then
+	MainMenu()
+end if
