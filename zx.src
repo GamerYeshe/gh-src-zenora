@@ -409,6 +409,7 @@ BeginHack = function(mLib)
 	main_input = null
 	ip_addr = null
 	port_num = null
+	opt_var  = null
 	metaLib = null
 	comp = get_shell.host_computer.File("/")
 
