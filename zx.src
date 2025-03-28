@@ -52,20 +52,20 @@ ClearLogs = function(shell)
 	if not log_file then
 		ErrorMessage("Log file does not exist at /var/system.log!")
 		wait(2)
-		MainMenu()
+		return
 	end if
-	// Check permission on log_file if can read else back to Menu
+	// Check permission on log_file if can read else return
 	if not log_file.has_permission("r") then
 		ErrorMessage("You are unauthorized to access the log file. Permission denied.")
 		wait(2)
-		MainMenu()
+		return
 	end if
 	// create new "system.log" file on /root
 	err_code = computer.touch("/root", "system.log")
 	if err_code != 1 then
 		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
 		wait(2)
-		MainMenu()
+		return
 	end if
 	// Try to move new_log file to /var
 	new_log = computer.File("/root/system.log")
@@ -78,7 +78,6 @@ ClearLogs = function(shell)
 			ErrorMessage("Unable to move created system.log file! [" + err_code + "]")
 			wait(2)
 		end if
-		MainMenu()
 	end if
 
 	InfoMessage("Log file has been cleared successfully.")
