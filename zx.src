@@ -81,7 +81,6 @@ ClearLogs = function(shell)
 			else
 				InfoMessage("Log file has been cleared successfully.")
 				wait(2)
-				MainMenu()
 			end if
 		end if
 	else
@@ -138,6 +137,7 @@ UploadHack = function(target_ip, target_user, target_pass)
 	shell = get_shell
 	remote_shell = shell.connect_service(target_ip, 22, target_user, target_pass, "ssh")
 	if typeof(remote_shell) == "string" then
+		is_ssh = false
 		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
 		wait(2)
 		remote_shell = shell.connect_service(target_ip, 21, target_user, target_pass, "ftp")
@@ -145,30 +145,34 @@ UploadHack = function(target_ip, target_user, target_pass)
 	if typeof(remote_shell) == "string" then
 		ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
 		wait(2)
-	else
-		file = program_path
-		result = shell.scp(program_path, "/bin/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/bin/nmap"
-		result = shell.scp("/bin/nmap", "/bin/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/lib/crypto.so"
-		result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/lib/metaxploit.so"
-		result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/usr/bin/ScanLan.exe"
-		result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		ClearLogs(remote_shell)
-		ContinueProgram()
+		HackManagementMenu()
 	end if
+	file = program_path
+	result = shell.scp(program_path, "/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/bin/nmap"
+	result = shell.scp("/bin/nmap", "/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/lib/crypto.so"
+	result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/lib/metaxploit.so"
+	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/usr/bin/ScanLan.exe"
+	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	ClearLogs(remote_shell)
+	terminal_input = RequestInput("Start terminal? y/n")
+	if terminal_input == "y" then
+		remote_shell.start_terminal
+	end if
+	HackManagementMenu()
 end function
 
 RemoveResult = function(file, result)
@@ -195,24 +199,29 @@ RemoveHack = function(target_ip, target_user, target_pass)
 	if typeof(remote_shell) == "string" then
 		ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
 		wait(2)
-	else
-		file = program_path
-		result = remote_shell.host_computer.File(file)
-		RemoveResult(file, result)
-		file = "/bin/nmap"
-		result = remote_shell.host_computer.File(file)
-		RemoveResult(file, result)
-		file = "/lib/crypto.so"
-		result = remote_shell.host_computer.File(file)
-		RemoveResult(result)
-		file = "/lib/metaxploit.so"
-		result = remote_shell.host_computer.File(file)
-		RemoveResult(result)
-		file = "/usr/bin/ScanLan.exe"
-		result = remote_shell.host_computer.File(file)
-		RemoveResult(result)
-		ClearLogs(remote_shell)
+		HackManagementMenu()
 	end if
+	file = program_path
+	result = remote_shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/bin/nmap"
+	result = remote_shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/crypto.so"
+	result = remote_shell.host_computer.File(file)
+	RemoveResult(result)
+	file = "/lib/metaxploit.so"
+	result = remote_shell.host_computer.File(file)
+	RemoveResult(result)
+	file = "/usr/bin/ScanLan.exe"
+	result = remote_shell.host_computer.File(file)
+	RemoveResult(result)
+	ClearLogs(remote_shell)
+	terminal_input = RequestInput("Start terminal? y/n")
+	if terminal_input == "y" then
+		remote_shell.start_terminal
+	end if
+	HackManagementMenu()
 end function
 
 HackManagementMenu = function()
