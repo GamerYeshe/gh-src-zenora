@@ -7,7 +7,6 @@
 // 
 
 // SELF REMINDER! - Improvement Goals - SELF REMINDER!
-// Put uploaded files in a hosted folder somewhere, and allow their permissions for o, g, u for guest router access or other permission exploting - IN PROGRESS (been doing it manually instead)
 // Integrate uploading files automatically using the result of overflow in "shell" result BEFORE start_terminal - IN PROGRESS
 // Huge NMAP customization overhaul - IN PROGRESS
 // Directory navigation with folder/file layout and permissions hierarchy - IN PROGRESS
@@ -408,7 +407,7 @@ BeginHack = function(mLib)
 						continue
 					end if
 				else
-					Error("Unsupported object returned!")
+					ErrorMessage("Unsupported object returned!")
 					wait(2)
 					continue	
 				end if
