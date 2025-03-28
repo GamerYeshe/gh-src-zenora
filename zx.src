@@ -1,4 +1,4 @@
-// Zenora Multi Tool :: Written by Aphex
+// Zenora Multi Tool :: Written by Aphex & GOLDEN
 
 // READ! - Notes - READ!
 // Remember to copy the IP addresses and note passwords and other important information often because this program uses clear_screen for the menus
@@ -19,9 +19,8 @@ metaLib = null
 version_number = "1.2"
 comp = get_shell.host_computer.File("/")
 
-ErrorMessage = function(message, ext=false) // ext == true | exit the program
+ErrorMessage = function(message)
 	print("<color=#ff0000>Error: <color=#ffffff>" + message + "</color>")
-	if ext then exit()
 end function
 
 InfoMessage = function(message)
@@ -34,15 +33,25 @@ RequestInput = function(message)
 	return input
 end function
 
-// include "metaxploit.so"
 metaxploit = include_lib("/lib/metaxploit.so")
-if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
-if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
+if not metaxploit then
+	metaxploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not metaxploit then
+	ErrorMessage("Cannot find metaxploit library in lib or current path folder.")
+	wait(2)
+	exit
+end if
 
-// include "crypto.so"
 cryptools = include_lib("/lib/crypto.so")
-if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
-if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then
+	ErrorMessage("Cannot find crypto library in lib or current path folder.")
+	wait(2)
+	exit
+end if
 
 ConnectService = function()
 	ip_input = RequestInput("Target IP: ")
@@ -89,7 +98,7 @@ LogsMenu = function() // LOG CLEARING MENU
 		print("<color=#ffffff>2) <color=#fd573a>Remote System</color>") // Clears logs via IP, user, pass
 		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>")
 		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex<color=#ffffff> #--]</b></color>")
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
 		main_input = user_input("<color=#ffffff>$> <color=#fd573a>")
 		if main_input == "1" then
 			shell = get_shell
@@ -107,43 +116,40 @@ LogsMenu = function() // LOG CLEARING MENU
 end function
 
 ClearLogs = function(shell)
-	if typeof(shell) == "computer" then computer = shell else computer = shell.host_computer // if shell by chance is a host_computer
-	log_file = computer.File("/var/system.log")
-	// if log_file doesnt exists
+	log_file = shell.host_computer.File("/var/system.log")
 	if not log_file then
 		ErrorMessage("Log file does not exist at /var/system.log!")
 		wait(2)
-		return
 	end if
-	// Check permission on log_file if can read else return
-	if not log_file.has_permission("r") then
-		ErrorMessage("You are unauthorized to access the log file. Permission denied.")
-		wait(2)
-		return
-	end if
-	// create new "system.log" file on /root
-	err_code = computer.touch("/root", "system.log")
-	if err_code != 1 then
-		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
-		wait(2)
-		return
-	end if
-	// Try to move new_log file to /var
-	new_log = computer.File("/root/system.log")
-	err_code = new_log.move("/var", "system.log")
-	if typeof(err_code) == "string" then // if true try delete new_log
-		ErrorMessage("Log file move to /var/ is unsuccessful! [" + err_code + "]")
-		wait(2)
-		err_code = new_log.delete
-		if typeof(err_code) == "string" then
-			ErrorMessage("Unable to move created system.log file! [" + err_code + "]")
+	if log_file != null then
+		if not log_file.has_permission("r") then
+			ErrorMessage("You are unauthorized to access the log file. Permission denied.")
 			wait(2)
+		else
+			new_log = shell.host_computer.touch("/root/", "system.log")
+			if typeof(new_log) == "string" then
+				ErrorMessage("Log file creation is unsuccessful! [" + new_log + "]")
+				wait(2)
+			end if
+			select_log = shell.host_computer.File("/root/system.log")
+			move_log = select_log.move("/var/", "system.log")
+			if typeof(move_log) == "string" then
+				ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
+				wait(2)
+				delete_result = select_log.delete
+				if typeof(delete_result) == "string" then
+					ErrorMessage("Unable to move created system.log file! [" + delete_result + "]")
+					wait(2)
+				end if
+			else
+				InfoMessage("Log file has been cleared successfully.")
+				wait(2)
+			end if
 		end if
+	else
+		ErrorMessage("Log file is empty.")
+		wait(2)
 	end if
-
-	InfoMessage("Log file has been cleared successfully.")
-	wait(2)
-	MainMenu()
 end function
 
 RemoteLocalHack = function()
@@ -269,7 +275,7 @@ HackManagementMenu = function()
 		print("<color=#ffffff>2) <color=#fd573a>Remove Hacks</color>")
 		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>")
 		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex<color=#ffffff> #--]</b></color>")
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
 		management_input = user_input("<color=#ffffff>$> <color=#fd573a>")
 		if management_input == "1" then
 			UploadHack()
@@ -332,7 +338,7 @@ DecipherHash = function()
 			end if
 		end for
 	else
-		ErrorMessage("You must enter a decipher file or hash in format user:pass!")
+		ErrorMessage("You must enter a decipher file or hash in pass format!")
 		wait(2)
 	end if
 	MainMenu()
@@ -491,7 +497,7 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print("<color=#ffffff>4) <color=#fd573a>Decipher Hash</color>")
 		print("<color=#ffffff>5) <color=#fd573a>Clear Logs</color>")
 		print("<color=#ffffff>6) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex<color=#ffffff> #--]</b></color>")
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
 		main_input = user_input("<color=#ffffff>$> <color=#fd573a>")
 		if main_input == "1" then
 			RemoteLocalHack()
