@@ -1,4 +1,4 @@
-// Zenora Multi Tool - ZX :: Written by Aphex
+// Zenora Multi Tool :: Written by Aphex
 
 // READ! - Notes - READ!
 // Remember to copy the IP addresses and note passwords and other important information often because this program uses clear_screen for the menus
@@ -7,19 +7,13 @@
 // 
 
 // SELF REMINDER! - Improvement Goals - SELF REMINDER!
-// Easier upload and removal of files to help navigate deeper network (preferably with log clearing after uploading and removing actions) - DONE
-// Add decipher option either as user:pass hash in file or user:pass hashing - DONE
-// Organise the damn menu. A few un-needed submenus. (All exploits into one submenu at least). Clear Logs as a direct function call - DONE
-// Put UploadHack and RemoveHack into the same submenu and sort out their function params for future calls. - DONE
-// Put uploaded files in a hosted folder somewhere, and allow their permissions for guest BEFORE UPLOAD AND REMOVE incase of guest router access - IN PROGRESS (been doing it manually instead)
-// Fix the new_pass optional param for MainMenu option 1 (Remote & Local Hack), as it errors alphanumeric. and the local ip being invalid too! - IN PROGRESS
+// Put uploaded files in a hosted folder somewhere, and allow their permissions for o, g, u for guest router access or other permission exploiting - IN PROGRESS (been doing it manually instead)
 // Integrate uploading files automatically using the result of overflow in "shell" result BEFORE start_terminal - IN PROGRESS
 // Huge NMAP customization overhaul - IN PROGRESS
 // Directory navigation with folder/file layout and permissions hierarchy - IN PROGRESS
+// Fix some decipher hash errors
 
 main_input = null
-upload_input = null
-logs_input = null
 ip_addr = null
 port_num = null
 opt_var = null
@@ -83,36 +77,37 @@ ClearLogs = function(shell)
 end function
 
 RemoteLocalHack = function()
-	print("<color=#fd573a>Target IP: </color>")
-	ip_input = user_input("<color=#ffffff>$> <color=#fd573a>")
-	if is_valid_ip(ip_input) then
-		print("<color=#fd573a>Target Port: </color>")
-		port_input = user_input("<color=#ffffff>$> <color=#fd573a>").to_int
-		if typeof(port_input) == "number" then
-			opt_input = user_input("<color=#fd573a>New Password / LAN IP (Optional): </color>")
-			if opt_input then
-				opt_var = opt_input
-			else
-				opt_var = null
-			end if
-			ip_addr = ip_input
-					port_num = port_input
-					net_session = net_use(metaxploit, ip_addr, port_num)
-					if not net_session then
-						print("<color=#ff0000>Error: <color=#ffffff>Unable to connect to net session.</color>")
-						wait(2)
-						MainMenu()
-					end if
-					metaLib = net_session.dump_lib
-					BeginHack(metaLib)
-				else
-					print("<color=#ff0000>Error: <color=#ffffff>Please enter a valid number for port.</color>")
-					wait(2)
-				end if
-			else
-				print("<color=#ff0000>Error: <color=#ffffff>You have entered an invalid target IP address.</color>")
-				wait(2)
-			end if
+    print("<color=#fd573a>Target IP: </color>")
+    ip_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+    if is_valid_ip(ip_input) then
+        print("<color=#fd573a>Target Port: </color>")
+        port_input = user_input("<color=#ffffff>$> <color=#fd573a>").to_int
+        if typeof(port_input) == "number" then
+            print("<color=#fd573a>New Password / LAN IP (Optional): </color>")
+            opt_input = user_input("<color=#ffffff>$> <color=#fd573a>")
+            if opt_input then
+                globals.opt_var = opt_input
+            else
+                globals.opt_var = null
+            end if
+            ip_addr = ip_input
+            port_num = port_input
+            net_session = net_use(metaxploit, ip_addr, port_num)
+            if not net_session then
+                print("<color=#ff0000>Error: <color=#ffffff>Unable to connect to net session.</color>")
+                wait(2)
+                MainMenu()
+            end if
+            metaLib = net_session.dump_lib
+            BeginHack(metaLib)
+        else
+            print("<color=#ff0000>Error: <color=#ffffff>Please enter a valid number for port.</color>")
+            wait(2)
+        end if
+    else
+        print("<color=#ff0000>Error: <color=#ffffff>You have entered an invalid target IP address.</color>")
+        wait(2)
+    end if
 end function
 
 UploadResult = function(result)
@@ -137,7 +132,7 @@ UploadHack = function(target_ip, target_user, target_pass)
 		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH and FTP. Check credentials.</color>")
 		wait(2)
 	else
-		result = shell.scp(program_path.split("/")[-1], "/bin/", remote_shell)
+		result = shell.scp(program_path, "/bin/", remote_shell)
 		wait(0.2)
 		UploadResult(result)
 		result = shell.scp("/bin/nmap", "/bin/", remote_shell)
@@ -181,7 +176,7 @@ RemoveHack = function(target_ip, target_user, target_pass)
 		print("<color=#ff0000>Error: <color=#ffffff>Failed to connect to remote shell via SSH and FTP. Check credentials.</color>")
 		wait(2)
 	else
-		result = remote_shell.host_computer.File(program_path.split("/")[-1])
+		result = remote_shell.host_computer.File(program_path)
 		RemoveResult(result)
 		result = remote_shell.host_computer.File("/bin/nmap")
 		RemoveResult(result)
@@ -251,7 +246,7 @@ GetPassword = function(userPass)
 end function
 
 DecipherHash = function()
-	print("<color=#fd573a>Enter File/Hash: <color=#fd573a>")
+	print("<color=#fd573a>Enter File Path/Hash: <color=#fd573a>")
 	decipher_hash = user_input("<color=#ffffff>$> <color=#fd573a>")
 	if decipher_hash then
 		file = get_shell.host_computer.File(decipher_hash)
@@ -282,8 +277,7 @@ DecipherHash = function()
 				print("<color=#ff0000>Error: <color=#ffffff>Password not found.</color>")
 				wait(2)
 			else
-				print("Password: " + password) // There may be some issues from GetPassword() userPass.len wrong syntax with this
-						// print(password) -- Original
+				print(password)
 				wait(2)
 				ContinueProgram()
 			end if
@@ -413,11 +407,8 @@ BeginHack = function(mLib)
 	end for
 
 	main_input = null
-	upload_input = null
-	logs_input = null
 	ip_addr = null
 	port_num = null
-	opt_var = null
 	metaLib = null
 	comp = get_shell.host_computer.File("/")
 
