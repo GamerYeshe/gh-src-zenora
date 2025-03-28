@@ -209,13 +209,13 @@ RemoveHack = function(target_ip, target_user, target_pass)
 	RemoveResult(file, result)
 	file = "/lib/crypto.so"
 	result = remote_shell.host_computer.File(file)
-	RemoveResult(result)
+	RemoveResult(file, result)
 	file = "/lib/metaxploit.so"
 	result = remote_shell.host_computer.File(file)
-	RemoveResult(result)
+	RemoveResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
 	result = remote_shell.host_computer.File(file)
-	RemoveResult(result)
+	RemoveResult(file, result)
 	ClearLogs(remote_shell)
 	terminal_input = RequestInput("Start terminal? y/n")
 	if terminal_input == "y" then
