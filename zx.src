@@ -33,7 +33,7 @@ RequestInput = function(message)
 	return input
 end function
 
-// include "metaxploit.so"
+
 main_input = null
 ip_addr = null
 port_num = null
@@ -42,6 +42,7 @@ metaLib = null
 version_number = "1.2"
 comp = get_shell.host_computer.File("/")
 
+// include "metaxploit.so"
 metaxploit = include_lib("/lib/metaxploit.so")
 if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
 if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
@@ -542,29 +543,25 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 end function
 
 ListTree = function(file)
-	print("|_"+file.permissions+" <color=#0080FF>"+file.path+"</color>")
-
+	permission = "|_"+file.permissions.replace("-", "_")
+	print(permission+" <color=#0080FF>"+file.path+"</color>")
+	
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
 			spaces = " "*(f.path.split("/").len-1)
+			permission = spaces+"|_"+f.permissions.replace("-", "_")
+			
 			if f.is_folder then
-				print(spaces+"|_"+f.permissions+" <color=#0080FF>"+f.name()+"</color>")
+				print(permission+" <color=#0080FF>"+f.name()+"</color>")
 				list_dir(f)
 			else
-				if f.is_binary then print(spaces+"|_"+f.permissions+" <color=green>"+f.name+"</color>*") else print(spaces+"|_"+f.permissions+" <color=white>"+f.name+"</color>")
+				if f.is_binary then print(permission+" <color=green>"+f.name+"</color>*") else print(permission+" <color=white>"+f.name+"</color>")
 			end if
 		end for
 	end function
 	list_dir(file)
-	continue_input = RequestInput("Continue? y/n")
-	if continue_input == "y" then
-		MainMenu()
-	else if continue_input == "n" then
-		exit
-	else
-		ContinueProgram()
-	end if
+	wait(20)
 end function
 
 if params.len > 0 then
