@@ -11,23 +11,20 @@
 // Huge NMAP customization overhaul - IN PROGRESS
 // Directory navigation with folder/file layout and permissions hierarchy - IN PROGRESS
 
-main_input = null
-ip_addr = null
-port_num = null
-opt_var = null
-metaLib = null
-version_number = "1.2"
-comp = get_shell.host_computer.File("/")
-
-comp = get_shell.host_computer.File("/")
-
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print("<color=#ff0000>Error: <color=#ffffff>" + message + "</color>")
 	if ext then exit()
+	wait(2)
 end function
 
 InfoMessage = function(message)
 	print("<color=#399d22>Info: <color=#ffffff>" + message + "</color>")
+	wait(2)
+end function
+
+SyntaxMessage = function(message)
+	print("<color=#c471dc>Syntax: <color=#ffffff>" + message + "</color>")
+	wait(2)
 end function
 
 RequestInput = function(message)
@@ -37,6 +34,14 @@ RequestInput = function(message)
 end function
 
 // include "metaxploit.so"
+main_input = null
+ip_addr = null
+port_num = null
+opt_var = null
+metaLib = null
+version_number = "1.2"
+comp = get_shell.host_computer.File("/")
+
 metaxploit = include_lib("/lib/metaxploit.so")
 if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
 if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
@@ -81,25 +86,6 @@ ConnectService = function()
 		wait(2)
 		MainMenu()
 	end if
-end function
-
-ListTree = function(file)
-	print("|_"+file.permissions+" <color=#0080FF>"+file.path+"</color>")
-
-	list_dir = function(file)
-		files = file.get_folders + file.get_files
-		for f in files
-			spaces = " "*(f.path.split("/").len-1)
-			if f.is_folder then
-				print(spaces+"|_"+f.permissions+" <color=#0080FF>"+f.name()+"</color>")
-				list_dir(f)
-			else
-				if f.is_binary then print(spaces+"|_"+f.permissions+" <color=green>"+f.name+"</color>*") else print(spaces+"|_"+f.permissions+" <color=white>"+f.name+"</color>")
-			end if
-		end for
-	end function
-	list_dir(file)
-	wait(20)
 end function
 
 LogsMenu = function() // LOG CLEARING MENU
@@ -489,19 +475,6 @@ BeginHack = function(mLib)
 	ContinueProgram()
 end function
 
-ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
-	while true
-		continue_input = RequestInput("Continue? y/n")
-		if continue_input == "y" then
-			MainMenu()
-		else if continue_input == "n" then
-			exit
-		else
-			continue
-		end if
-	end while
-end function
-
 MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
@@ -556,6 +529,64 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		end if
 	end while
 end function
+
+ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
+	continue_input = RequestInput("Continue to Main Menu? y/n")
+	if continue_input == "y" then
+		MainMenu()
+	else if continue_input == "n" then
+		exit
+	else
+		ContinueProgram()
+	end if
+end function
+
+ListTree = function(file)
+	print("|_"+file.permissions+" <color=#0080FF>"+file.path+"</color>")
+
+	list_dir = function(file)
+		files = file.get_folders + file.get_files
+		for f in files
+			spaces = " "*(f.path.split("/").len-1)
+			if f.is_folder then
+				print(spaces+"|_"+f.permissions+" <color=#0080FF>"+f.name()+"</color>")
+				list_dir(f)
+			else
+				if f.is_binary then print(spaces+"|_"+f.permissions+" <color=green>"+f.name+"</color>*") else print(spaces+"|_"+f.permissions+" <color=white>"+f.name+"</color>")
+			end if
+		end for
+	end function
+	list_dir(file)
+	continue_input = RequestInput("Continue? y/n")
+	if continue_input == "y" then
+		MainMenu()
+	else if continue_input == "n" then
+		exit
+	else
+		ContinueProgram()
+	end if
+end function
+
+if params.len > 0 then
+	if params[0] == "-l" then
+		if params.len > 1 then
+			input_path = get_shell.host_computer.File(params[1])
+			if input_path then
+				if input_path.has_permission("r") then
+					ListTree(input_path)
+				else
+					ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
+					wait(2)
+				end if
+			else
+				ErrorMessage("You must enter a valid path. ex: /, or even /home/MILF/Milk!")
+			end if
+		else
+			SyntaxMessage(program_path.split("/")[-1] + " -l <path location>")
+			exit
+		end if
+	end if
+end if
 
 if main_input == null then
 	MainMenu()
