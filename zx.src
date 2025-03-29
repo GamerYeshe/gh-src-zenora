@@ -25,10 +25,11 @@ SyntaxMessage = function(message)
 	print("<color=#c471dc>Syntax: <color=#ffffff>" + message + "</color>")
 end function
 
-RequestInput = function(message)
-    print("<color=#ffffff>" + message + "</color>")
+RequestInput = function(message, customText="")
+    print("/<color=#ffffff>" + message + "</color>")
 	path_dir = current_path
-    request_input = user_input("<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
+    //request_input = user_input("\<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
+	request_input = user_input("\<color=#ffffff>=> <color=#fd573a>"+customText)
 	return request_input
 end function
 
@@ -50,6 +51,7 @@ cryptools = include_lib("/lib/crypto.so")
 if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
 if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
 
+// Golden: Ill be refactoring ConnectService()
 ConnectService = function()
 	ip_input = RequestInput("Target IP: ")
 	if is_valid_ip(ip_input) then
@@ -479,6 +481,8 @@ end function
 MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
+		shell = get_shell
+		host_comp = shell.host_computer
 		print("<color=#ffffff><b>[--# <color=#f1ef31>Main Menu<color=#ffffff> #--]</b></color>")
 		print("<color=#ffffff>1) <color=#fd573a>Remote & Local IP Port Hack</color>")
 		print("<color=#ffffff>2) <color=#fd573a>Local Library Hack</color>") // enter for example init.so - it must be .so at the end
@@ -488,22 +492,21 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print("<color=#ffffff>6) <color=#fd573a>Clear Logs</color>")
 		print("<color=#ffffff>7) <color=#fd573a>Exit Program</color>")
 		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
-		path_dir = current_path
-    	main_input = user_input("<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
+		
+    	main_input = user_input("<color=#43c12d>"+active_user+"@"+host_comp.get_name+":"+current_path+ "$<color=#ffffff>> <color=#fd573a>")
 		if main_input == "1" then
 			RemoteLocalHack()
 		else if main_input == "2" then
-			host_comp = get_shell.host_computer
-			local_input = RequestInput("Local Library File (ex: init.so): ")
+			local_input = RequestInput("Local Library File (ex: init.so): ", "/lib/")
 			if local_input then
-				lib_file = host_comp.File("/lib/" + lib_input)
+				lib_file = host_comp.File("/lib/" + local_input)
 				if lib_file then
 					if not lib_file.has_permission("r") then
 						ErrorMessage("You are unauthorized to access the log file. Permission denied.")
 						wait(2)
 						continue
-					else
-						metaLib = metaxploit.load("/lib/" + lib_input)
+					else lib_name
+						metaLib = metaxploit.load("/lib/" + local_input)
 						BeginHack(metaLib)
 					end if
 				else
@@ -520,7 +523,7 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			DecipherHash()
 		else if main_input == "5" then
 			location_input = RequestInput("Path Location: ")
-			path_result = get_shell.host_computer.File(location_input)
+			path_result = host_comp.File(location_input)
 			ListTree(path_result)
 		else if main_input == "6" then
 			LogsMenu()
