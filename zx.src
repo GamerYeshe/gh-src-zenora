@@ -30,7 +30,7 @@ RequestInput = function(message, customText="")
     print("/<color=#ffffff>" + message + "</color>")
 	path_dir = current_path
     //request_input = user_input("\<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
-	request_input = user_input("\<color=#ffffff>=> <color=#fd573a>"+customText)
+	request_input = user_input("\<color=#ffffff>=> <color=#fd573a>"+customText) // Experimental
 	return request_input
 end function
 
@@ -52,7 +52,7 @@ cryptools = include_lib("/lib/crypto.so")
 if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
 if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
 
-// Golden: Ill be refactoring ConnectService()
+// Returns a FTP or SSH shell else go back to MainMenu
 ConnectService = function()
 	// Target IP
 	ip_input = RequestInput("Target IP: ")
@@ -83,6 +83,7 @@ ConnectService = function()
 		wait(2)
 		remote_shell = get_shell.connect_service(ip_input, 21, username_input, pass_input)
 	end if
+	// Failed to Connect via SSH or FTP
 	if typeof(remote_shell) == "string" or remote_shell == null then
 		ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
 		wait(2)
@@ -91,29 +92,32 @@ ConnectService = function()
 	return remote_shell
 end function
 
-LogsMenu = function() // LOG CLEARING MENU
+// LOG CLEARING MENU
+LogsMenu = function() 
 	while true
 		clear_screen
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Clear Logs Menu<color=#ffffff> #--]</b></color>")
-		print("<color=#ffffff>1) <color=#fd573a>Local System</color>") // Clears local logs
-		print("<color=#ffffff>2) <color=#fd573a>Remote System (User & Password)</color>") // Clears logs via IP, user, pass
-		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>")
-		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Clear Logs Menu<color=#ffffff> #--]</b></color>") // Clear Logs Menu
+		print("<color=#ffffff>1) <color=#fd573a>Local System</color>") // Local System  |  Clears local logs
+		print("<color=#ffffff>2) <color=#fd573a>Remote System (User & Password)</color>") // Remote System  |  Clears logs via IP, user, pass
+		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>") // Main Menu
+		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>") // Exit Program
+		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>") // Tool name and our Credits :)
 		print("")
 		path_dir = current_path
     	logs_input = user_input("<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
+
 		if logs_input == "1" then
 			shell = get_shell
 			ClearLogs(shell)
+			
 		else if logs_input == "2" then
 			ClearLogs(ConnectService())
+			
 		else if logs_input == "3" then
 			MainMenu()
+			
 		else if logs_input == "4" then
 			exit
-		else
-			continue
 		end if
 	end while
 end function
@@ -549,6 +553,11 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 end function
 
 ListTree = function(file)
+	if not file then
+		SyntaxMessage("File Doesnt exist")
+		wait(2)
+		MainMenu()
+	end if
 	permission = "|_"+file.permissions.replace("-", "_")
 	print(permission+" <color=#0080FF>"+file.path+"</color>")
 	
