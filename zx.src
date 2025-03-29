@@ -561,7 +561,14 @@ ListTree = function(file)
 		end for
 	end function
 	list_dir(file)
-	wait(20)
+	continue_input = RequestInput("Continue? y/n")
+	if continue_input == "y" then
+		MainMenu()
+	else if continue_input == "n" then
+		exit
+	else
+		ContinueProgram()
+	end if
 end function
 
 if params.len > 0 then
