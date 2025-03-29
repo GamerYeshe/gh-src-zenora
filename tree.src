@@ -1,0 +1,25 @@
+ListTree = function(file)
+	// go to "/" folder, well i just commented it out
+	//while file.name != "/"
+	//	file = file.parent
+	//end while
+	print("|_"+file.permissions+" <color=#0080FF>"+file.path+"</color>")
+	
+	list_dir = function(file)
+		files = file.get_folders + file.get_files
+		for f in files
+			spaces = " "*(f.path.split("/").len-1)
+			if f.is_folder then
+				print(spaces+"|_"+f.permissions+" <color=#0080FF>"+f.name()+"</color>")
+				list_dir(f)
+			else
+				if f.is_binary then print(spaces+"|_"+f.permissions+" <color=green>"+f.name+"</color>*") else print(spaces+"|_"+f.permissions+" <color=white>"+f.name+"</color>")
+			end if
+		end for
+	end function
+	list_dir(file)
+end function
+
+file = get_shell.host_computer.File("/home/golden/build")
+
+ListTree(file)
