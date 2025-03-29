@@ -90,6 +90,25 @@ ConnectService = function()
 	end if
 end function
 
+ListTree = function(file)
+	print("|_"+file.permissions+" <color=#0080FF>"+file.path+"</color>")
+
+	list_dir = function(file)
+		files = file.get_folders + file.get_files
+		for f in files
+			spaces = " "*(f.path.split("/").len-1)
+			if f.is_folder then
+				print(spaces+"|_"+f.permissions+" <color=#0080FF>"+f.name()+"</color>")
+				list_dir(f)
+			else
+				if f.is_binary then print(spaces+"|_"+f.permissions+" <color=green>"+f.name+"</color>*") else print(spaces+"|_"+f.permissions+" <color=white>"+f.name+"</color>")
+			end if
+		end for
+	end function
+	list_dir(file)
+	wait(20)
+end function
+
 LogsMenu = function() // LOG CLEARING MENU
 	while true
 		clear_screen
@@ -495,8 +514,9 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print("<color=#ffffff>2) <color=#fd573a>Local Library Hack</color>") // enter for example init.so - it must be .so at the end
 		print("<color=#ffffff>3) <color=#fd573a>Remote Hack File Management (User & Password)</color>")
 		print("<color=#ffffff>4) <color=#fd573a>Decipher Hash</color>")
-		print("<color=#ffffff>5) <color=#fd573a>Clear Logs</color>")
-		print("<color=#ffffff>6) <color=#fd573a>Exit Program</color>")
+		print("<color=#ffffff>5) <color=#fd573a>List Directory Files</color>")
+		print("<color=#ffffff>6) <color=#fd573a>Clear Logs</color>")
+		print("<color=#ffffff>7) <color=#fd573a>Exit Program</color>")
 		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
 		main_input = user_input("<color=#ffffff>$> <color=#fd573a>")
 		if main_input == "1" then
@@ -528,8 +548,12 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		else if main_input == "4" then
 			DecipherHash()
 		else if main_input == "5" then
-			LogsMenu()
+			location_input = RequestInput("Path Location: ")
+			path_result = get_shell.host_computer.File(location_input)
+			ListTree(path_result)
 		else if main_input == "6" then
+			LogsMenu()
+		else if main_input == "7" then
 			exit
 		else
 			continue
