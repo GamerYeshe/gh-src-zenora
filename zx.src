@@ -450,11 +450,11 @@ UploadHack = function()
 	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
 	wait(0.2)
 	UploadResult(file, result)
-	ClearLogs(remote_shell)
 	terminal_input = RequestInput("Start terminal? y/n")
 	if terminal_input == "y" then
 		remote_shell.start_terminal
 	end if
+	ClearLogs(remote_shell)
 	HackManagementMenu()
 end function
 
@@ -471,8 +471,25 @@ RemoveResult = function(file, result)
 	end if
 end function
 
-RemoveHack = function()
+RemoveHackLocal = function()
 	shell = get_shell
+	file = program_path
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/crypto.so"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/metaxploit.so"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/usr/bin/ScanLan.exe"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	ClearLogs(shell)
+	HackManagementMenu()
+end function
+
+RemoveHackRemote = function()
 	remote_shell = ConnectService()
 	file = program_path
 	result = remote_shell.host_computer.File(file)
@@ -486,22 +503,23 @@ RemoveHack = function()
 	file = "/usr/bin/ScanLan.exe"
 	result = remote_shell.host_computer.File(file)
 	RemoveResult(file, result)
-	ClearLogs(remote_shell)
 	terminal_input = RequestInput("Start terminal? y/n")
 	if terminal_input == "y" then
 		remote_shell.start_terminal
 	end if
+	ClearLogs(remote_shell)
 	HackManagementMenu()
 end function
 
 HackManagementMenu = function()
 	while true
 		clear_screen
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
-		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
-		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
-		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
-		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks (Remote)</color>")
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks (Local)</color>")
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remove Hacks (Remote)</color>")
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Main Menu</color>")
+		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "Exit Program</color>")
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
 		print("")
 		path_dir = current_path
@@ -509,10 +527,12 @@ HackManagementMenu = function()
 		if management_input == "1" then
 			UploadHack()
 		else if management_input == "2" then
-			RemoveHack()
+			RemoveHackLocal()
 		else if management_input == "3" then
-			MainMenu()
+			RemoveHackRemote()
 		else if management_input == "4" then
+			MainMenu()
+		else if management_input == "5" then
 			exit
 		else
 			continue
@@ -709,7 +729,7 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Main Menu" + COLOUR_WHITE + " #--]</b></color>")
 		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Remote & Local IP Port Hack</color>")
 		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Local Library Hack</color>") // enter for example init.so - it must be .so at the end
-		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remote Hack File Management (User & Password)</color>")
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Hack File Management</color>")
 		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Decipher Hash</color>")
 		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "List Directory Files</color>")
 		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "NMAP IP Address</color>")
@@ -805,9 +825,9 @@ end function
 
 if params.len > 0 then
 	if params[0] == "-h" then // Help option - lists shortcut commands
-		InfoMessage(program_path.split("/")[-1] + " -l <path> - List directory")
+		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
 		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
-		InfoMessage(program_path.split("/")[-1] + " -w - Attempts wifi cracking")
+		InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
 		InfoMessage(program_path.split("/")[-1] + " -d - Decipher option")
 		exit
 	else if params[0] == "-l" then // ls shortcut
