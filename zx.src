@@ -7,10 +7,8 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// NMAP customization overhaul - IN PROGRESS
 // R SHELL NEEDS IMPLEMENTATION! - IN PROGRESS
-// Directory navigation with folder/file layout and permissions hierarchy - IMPLEMENTED BUT NEEDS WORK (zx -l <path> too)
-// Integrate uploading files automatically using the result of overflow in "shell" result BEFORE start_terminal - CANCELLED
+// BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE 
 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
@@ -97,24 +95,29 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 				MainMenu()
 			end if
 		end if
-		if ports == null then
-			if shortcut then
-				exit(ErrorMessage("Target IP address not found. Null ports."))
-			else
-				MainMenu()
-			end if
-		end if
 		if typeof(ports) == "string" then
 			if shortcut then
-				exit(ErrorMessage("An error occured with port return."))
+				exit(ErrorMessage("An error occured with port return: [" + ports + "]"))
 			else
 				MainMenu()
 			end if
 		end if
 		if ports then
-			info = "PORT STATE SERVICE VERSION LAN"   
+			info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN</color>"   
 			print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
-			print(COLOUR_GREEN + "Interesting ports on " + COLOUR_WHITE + "<b>" + target_ip + "</b></color>\n")
+			InfoMessage("ESSID: " + COLOUR_WHITE + router.essid_name + "</color>")
+			InfoMessage("BSSID: " + COLOUR_WHITE + router.bssid_name + "</color>")
+			InfoMessage("Version: v" + COLOUR_WHITE + router.kernel_version() + "</color>")
+			firewall = router.firewall_rules
+			if firewall == [] or firewall == null then
+    			InfoMessage("Firewall - <b>" + COLOUR_GREEN + "ALLOWED</b></color>")
+			else
+    			InfoMessage("Firewall - <b>" + COLOUR_RED + "DENIED</b></color>")
+    			for rule in firewall
+        			print(COLOUR_RED + rule + "</color>")
+    			end for
+			end if
+			InfoMessage("Interesting ports on " + COLOUR_WHITE + "<b>" + target_ip + "</b></color>\n")
 			if ports.len == 0 then
 				InfoMessage("No open ports...")
 				print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>\n")
@@ -132,7 +135,7 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
    				if(port.is_closed and not is_lan) then
       				port_status = "closed"
    				end if
-   				info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
+   				info = info + "\n" + COLOUR_ORANGE + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
 			end for
 			print(format_columns(info) + "\n")
 			print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
