@@ -22,7 +22,8 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "2.0"
+version_number = "3.0"
+
 // get the current path for example user@deviceName:/home/user$>
 get_path = function()
 	host_comp = get_shell.host_computer
@@ -300,6 +301,34 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 end function
 
 ReverseShell = function()
+	clear_screen
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "R-Shell Interface" + COLOUR_WHITE + " #--]</b></color>")
+	
+	// Get shell Info
+	get_shell_info = function(shell)
+		computer = shell.host_computer
+		return [computer.get_name, computer.public_ip, computer.local_ip, computer.active_net_card].join(" ")
+	end function
+
+	// List Connected Devices
+	shells = metaxploit.rshell_server
+	if typeof(shells) != "list" then
+		ErrorMessage("Rshell server gave a unknown response! [" + shells + "]")
+		wait(2)
+		MainMenu()
+	else if shells.len <= 0 or shells == null then
+		ErrorMessage("Rshell server has no connections!")
+		wait(2)
+		MainMenu()
+	end if
+	info = "[#] [Device_Name] [Public_IP] [Local_Ip] [Connected_by]\n"
+	index = 1
+	for shell in shells
+		info = info + index + ") " + get_shell_info(shell) + "\n"
+		index = index + 1
+	end for
+	print(format_columns(info))
+	index = RequestInput("Index: ")
 end function
 
 // Returns a FTP or SSH shell else go back to MainMenu
