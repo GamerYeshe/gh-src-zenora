@@ -21,7 +21,7 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "3.0"
+version_number = "2.0"
 
 ErrorMessage = function(message)
 	print(COLOUR_RED + "Error: " + COLOUR_WHITE + message + "</color>")
@@ -68,6 +68,16 @@ if not cryptools then
 	wait(2)
 	exit
 end if
+
+StartTerminal = function(shell)
+	terminal_input = RequestInput("Start terminal? y/n")
+	if terminal_input == "y" then
+		shell.start_terminal
+		exit
+	else
+		ContinueProgram()
+	end if
+end function
 
 WifiCrack = function()
 	host_comp = get_shell.host_computer
@@ -328,9 +338,9 @@ LogsMenu = function() // LOG CLEARING MENU
 		clear_screen
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Clear Logs Menu" + COLOUR_WHITE + " #--]</b></color>")
 		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Local System</color>") // Clears local logs
-		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remote System (User & Password)</color>") // Clears logs via IP, user, pass
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remote System</color>") // Clears logs via IP, user, pass
 		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
-		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "0) " + COLOUR_ORANGE + "Exit Program</color>")
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
 		print("")
 		path_dir = current_path
@@ -342,7 +352,7 @@ LogsMenu = function() // LOG CLEARING MENU
 			ClearLogs(ConnectService())
 		else if logs_input == "3" then
 			MainMenu()
-		else if logs_input == "4" then
+		else if logs_input == "0" then
 			exit
 		else
 			continue
@@ -451,9 +461,7 @@ UploadHack = function()
 	wait(0.2)
 	UploadResult(file, result)
 	terminal_input = RequestInput("Start terminal? y/n")
-	if terminal_input == "y" then
-		remote_shell.start_terminal
-	end if
+	StartTerminal()
 	ClearLogs(remote_shell)
 	HackManagementMenu()
 end function
@@ -503,10 +511,7 @@ RemoveHackRemote = function()
 	file = "/usr/bin/ScanLan.exe"
 	result = remote_shell.host_computer.File(file)
 	RemoveResult(file, result)
-	terminal_input = RequestInput("Start terminal? y/n")
-	if terminal_input == "y" then
-		remote_shell.start_terminal
-	end if
+	StartTerminal()
 	ClearLogs(remote_shell)
 	HackManagementMenu()
 end function
@@ -519,7 +524,7 @@ HackManagementMenu = function()
 		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks (Local)</color>")
 		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remove Hacks (Remote)</color>")
 		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Main Menu</color>")
-		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "0) " + COLOUR_ORANGE + "Exit Program</color>")
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
 		print("")
 		path_dir = current_path
@@ -532,7 +537,7 @@ HackManagementMenu = function()
 			RemoveHackRemote()
 		else if management_input == "4" then
 			MainMenu()
-		else if management_input == "5" then
+		else if management_input == "0" then
 			exit
 		else
 			continue
@@ -621,10 +626,10 @@ BeginHack = function(mLib)
 				end if
 				if typeof(result) == "shell" then
 					while true
-						terminal_input = RequestInput("Start terminal? y/n")
+						terminal_input = RequestInput("Start terminal? y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
 						if terminal_input == "y" then
 							result.start_terminal
-							exit
+							ContinueProgram()
 						else if terminal_input == "n" then
 							break
 						else
