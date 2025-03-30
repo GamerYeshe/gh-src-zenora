@@ -23,6 +23,8 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
+version_number = "2.0"
+
 ErrorMessage = function(message)
 	print(COLOUR_RED + "Error: " + COLOUR_WHITE + message + "</color>")
 end function
@@ -47,7 +49,6 @@ ip_addr = null
 port_num = null
 opt_var = null
 metaLib = null
-version_number = "1.4"
 comp = get_shell.host_computer.File("/")
 
 metaxploit = include_lib("/lib/metaxploit.so")
@@ -69,6 +70,77 @@ if not cryptools then
 	wait(2)
 	exit
 end if
+
+NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
+	if not get_shell.host_computer.is_network_active then
+		if shortcut then
+			exit(ErrorMessage("No connection to the internet."))
+		else
+			MainMenu()
+		end if
+	end if
+	router = null
+	ports = null
+	if is_valid_ip(target_ip) then
+		is_lan = is_lan_ip(target_ip)
+		if is_lan then
+			router = get_router
+			ports = router.device_ports(target_ip)
+		else
+			router = get_router(target_ip)
+			ports = router.used_ports
+		end if
+		if router == null then
+			if shortcut then
+				exit(ErrorMessage("Target IP address not found. Null router."))
+			else
+				MainMenu()
+			end if
+		end if
+		if ports == null then
+			if shortcut then
+				exit(ErrorMessage("Target IP address not found. Null ports."))
+			else
+				MainMenu()
+			end if
+		end if
+		if typeof(ports) == "string" then
+			if shortcut then
+				exit(ErrorMessage("An error occured with port return."))
+			else
+				MainMenu()
+			end if
+		end if
+		if ports then
+			info = "PORT STATE SERVICE VERSION LAN"   
+			print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
+			print(COLOUR_GREEN + "Interesting ports on " + COLOUR_WHITE + "<b>" + target_ip + "</b></color>\n")
+			if ports.len == 0 then
+				InfoMessage("No open ports...")
+				print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>\n")
+				wait(2)
+				ContinueProgram()
+			end if
+			ports = []
+			for lan in router.devices_lan_ip
+				ports = ports + router.device_ports(lan)
+			end for
+			for port in ports
+   				service_info = router.port_info(port)
+   				lan_ips = port.get_lan_ip
+   				port_status = "open"
+   				if(port.is_closed and not is_lan) then
+      				port_status = "closed"
+   				end if
+   				info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
+			end for
+			print(format_columns(info) + "\n")
+			print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
+			wait(2)
+			ContinueProgram()
+		end if
+	end if
+end function
 
 ConnectService = function()
 	ip_input = RequestInput("Target IP: ")
@@ -503,8 +575,10 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remote Hack File Management (User & Password)</color>")
 		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Decipher Hash</color>")
 		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "List Directory Files</color>")
-		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "Clear Logs</color>")
-		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "NMAP IP Address</color>")
+		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Wifi Cracker (Under Construction)</color>")
+		print(COLOUR_WHITE + "8) " + COLOUR_ORANGE + "Clear Logs</color>")
+		print(COLOUR_WHITE + "9) " + COLOUR_ORANGE + "Exit Program</color>")
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
 		print("")
 		path_dir = current_path
@@ -542,8 +616,13 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			path_result = get_shell.host_computer.File(location_input)
 			ListTree(path_result)
 		else if main_input == "6" then
-			LogsMenu()
+			nmap_input = RequestInput("Target IP: ")
+			NMAP(nmap_input)
 		else if main_input == "7" then
+			continue
+		else if main_input == "8" then
+			LogsMenu()
+		else if main_input == "9" then
 			exit
 		else
 			continue
@@ -586,33 +665,50 @@ end function
 
 if params.len > 0 then
 	if params[0] == "-h" then // Help option - lists shortcut commands
-		InfoMessage(program_path.split("/")[-1] + " -l <path> || (More Coming Soon)")
-		wait(2)
+		InfoMessage(program_path.split("/")[-1] + " -l <path> - List directory")
+		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
 		exit
-	else if params[0] == "-l" then // Returns files and folders nested within specified path
+	else if params[0] == "-l" then // ls shortcut
 		if params.len > 1 then
 			input_path = get_shell.host_computer.File(params[1])
 			if input_path then
 				if input_path.has_permission("r") then
+					InfoMessage("Showing " + params[1] + " path...")
+					wait(2)
 					ListTree(input_path)
 					ContinueProgram()
 				else
 					ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
-					wait(2)
 					exit
 				end if
 			else
 				ErrorMessage("You have specified an incorrect path!")
 				SyntaxMessage(program_path.split("/")[-1] + " -l <path location>") 
-				wait(2)
 				exit
 			end if
 		else
-			SyntaxMessage(program_path.split("/")[-1] + " -l <path location>")
+			current = get_shell.host_computer.File(current_path)
+			InfoMessage("Showing current path...")
 			wait(2)
+			ListTree(current)
+			ContinueProgram()
+		end if
+	else if params[0] == "-n" then // NMAP shortcut
+		if params.len > 1 then
+			if is_valid_ip(params[1]) then
+				shortcut = true
+				NMAP(params[1], shortcut)
+			else
+				ErrorMessage("You have entered an invalid target IP address.")
+				exit
+			end if
+		else
+			ErrorMessage("You have not entered a target IP address.")
+			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
 			exit
 		end if
 	else
+		ErrorMessage("That command is not recognized!")
 		exit
 	end if
 end if
