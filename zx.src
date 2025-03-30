@@ -36,7 +36,7 @@ get_path = function()
 		user = "<color=grey>" + user + "</color>"
 	end if
 	// return user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
- 	return user + COLOUR_WHITE + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE // Experimental
+ 	return user + COLOUR_WHITE + "@" + COLOUR_GREEN + host_comp.get_name + COLOUR_WHITE + ":" + current_path + "$> " + COLOUR_ORANGE // Experimental
 end function
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
@@ -348,7 +348,9 @@ DisplayMenu = function(title, options)
 	// Print Options
 	index = 1
 	for option in options
-		print(COLOUR_WHITE + index +") " + COLOUR_ORANGE + option + "</color>")
+		if options.len > 10 then index_str = str(index) else index_str = str(index)[-1]
+		print(COLOUR_WHITE + index_str +") " + COLOUR_ORANGE + option + "</color>")
+		index = index + 1
 	end for
 	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>\n") // Tool name with version
 end function
@@ -391,7 +393,7 @@ ClearLogs = function(shell)
 		wait(2)
 		return
 	end if
-	// create new "system.log" file on /root
+	// Create new "system.log" file on /root
 	err_code = computer.touch("/root", "system.log")
 	if err_code != 1 then
 		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
@@ -534,18 +536,19 @@ HackManagementMenu = function()
 		clear_screen
 		options = ["Upload Hacks", "Remove Hacks", "Main Menu", "Exit Program"]
 		DisplayMenu("Remote Hack File Management Menu", options)
-		path_dir = current_path
-    	management_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		if management_input == "1" then
+    	index = user_input(get_path)
+		// Upload Hacks
+		if index == "1" then
 			UploadHack()
-		else if management_input == "2" then
+		// Remove Hacks
+		else if index == "2" then
 			RemoveHack()
-		else if management_input == "3" then
+		// Main Menu
+		else if index == "3" then
 			MainMenu()
-		else if management_input == "4" then
+		// Exit Program
+		else if index == "4" then
 			exit
-		else
-			continue
 		end if
 	end while
 end function
@@ -736,23 +739,22 @@ end function
 MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Main Menu" + COLOUR_WHITE + " #--]</b></color>")
-		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Remote & Local IP Port Hack</color>")
-		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Local Library Hack</color>") // enter for example init.so - it must be .so at the end
-		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remote Hack File Management (User & Password)</color>")
-		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Decipher Hash</color>")
-		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "List Directory Files</color>")
-		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "NMAP IP Address</color>")
-		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Wifi Cracker</color>")
-		print(COLOUR_WHITE + "8) " + COLOUR_ORANGE + "Reverse Shell</color>")
-		print(COLOUR_WHITE + "9) " + COLOUR_ORANGE + "Clear Logs</color>")
-		print(COLOUR_WHITE + "0) " + COLOUR_ORANGE + "Exit Program</color>")
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
-		print("")
+		options  =  ["Remote & Local IP Port Hack"]
+		options.push("Local Library Hack") // enter for example init.so - it must be .so at the end
+		options.push("Remote Hack File Management (User & Password)")
+		options.push("Decipher Hash")
+		options.push("List Directory Files")
+		options.push("NMAP IP Address")
+		options.push("Wifi Cracker")
+		options.push("Reverse Shell")
+		options.push("Clear Logs")
+		options.push("Exit Program")
+		
+		DisplayMenu("Main Menu", options)
+		
 		host_comp = get_shell.host_computer
 		path_dir = current_path
-    	// main_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		main_input = user_input(COLOUR_WHITE + active_user + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE) // Experimental
+		main_input = user_input(get_path) // Experimental
 		if main_input == "1" then
 			RemoteLocalHack()
 		else if main_input == "2" then
@@ -795,8 +797,6 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			LogsMenu()
 		else if main_input == "0" then
 			exit
-		else
-			continue
 		end if
 	end while
 end function
@@ -889,10 +889,6 @@ if params.len > 0 then
 			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
 			exit
 		end if
-	else if params[0] == "-w" then // Wifi Cracking
-		WifiCrack()
-	else if params[0] == "-d" then // Wifi Cracking
-		DecipherHash()
 	else if params[0] == "-v" or params[0] == "--version" then
 		exit(program_path.split("/")[-1]+" "+ version_number)
 	else
