@@ -13,24 +13,35 @@
 // Export Mail or Directory Structure or both into a text file - OPTIONAL
 // Integrate uploading files automatically using the result of overflow in "shell" result BEFORE start_terminal - CANCELLED
 
+COLOUR_WHITE = "<color=#ffffff>"
+COLOUR_BLUE = "<color=#0080ff>"
+COLOUR_GREEN = "<color=#3d7932>"
+COLOUR_ORANGE = "<color=#fd573a>"
+COLOUR_RED = "<color=#ff0000>"
+COLOUR_PURPLE = "<color=#c471dc>"
+COLOUR_YELLOW = "<color=#f1ef31>"
+
+PORT_FTP = 21
+PORT_SSH = 22
+
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
-	print("<color=#ff0000>Error: <color=#ffffff>" + message + "</color>")
+	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
 	if ext then exit()
 end function
 
 InfoMessage = function(message)
-	print("<color=#399d22>Info: <color=#ffffff>" + message + "</color>")
+	print(COLOUR_BLUE + "Info: " + COLOUR_WHITE + message + "</color>")
 end function
 
 SyntaxMessage = function(message)
-	print("<color=#c471dc>Syntax: <color=#ffffff>" + message + "</color>")
+	print(COLOUR_PURPLE + "Syntax: " + COLOUR_WHITE + message + "</color>")
 end function
 
 RequestInput = function(message, customText="")
-    print("/<color=#ffffff>" + message + "</color>")
+    print(COLOUR_WHITE + message + "</color>")
 	path_dir = current_path
-    //request_input = user_input("\<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
-	request_input = user_input("\<color=#ffffff>=> <color=#fd573a>"+customText) // Experimental
+    // request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+	request_input = user_input("\" + COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
 	return request_input
 end function
 
@@ -96,16 +107,16 @@ end function
 LogsMenu = function() 
 	while true
 		clear_screen
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Clear Logs Menu<color=#ffffff> #--]</b></color>") // Clear Logs Menu
-		print("<color=#ffffff>1) <color=#fd573a>Local System</color>") // Local System  |  Clears local logs
-		print("<color=#ffffff>2) <color=#fd573a>Remote System (User & Password)</color>") // Remote System  |  Clears logs via IP, user, pass
-		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>") // Main Menu
-		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>") // Exit Program
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>") // Tool name and our Credits :)
+
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Clear Logs Menu" + COLOUR_WHITE + " #--]</b></color>") // Clear Logs Menu  |
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Local System</color>") // Local System  |  Clears local logs
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remote System (User & Password)</color>") // Remote System  |  Clears logs via IP, user, pass
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>") // Main Menu  |
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>") // Exit Program
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>") // Tool name and our Credits :)
 		print("")
 		path_dir = current_path
-    	logs_input = user_input("<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
-
+    	logs_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 		if logs_input == "1" then
 			shell = get_shell
 			ClearLogs(shell)
@@ -278,15 +289,15 @@ end function
 HackManagementMenu = function()
 	while true
 		clear_screen
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Remote Hack File Management Menu<color=#ffffff> #--]</b></color>")
-		print("\n")
-		print("<color=#ffffff>1) <color=#fd573a>Upload Hacks</color>")
-		print("<color=#ffffff>2) <color=#fd573a>Remove Hacks</color>")
-		print("<color=#ffffff>3) <color=#fd573a>Main Menu</color>")
-		print("<color=#ffffff>4) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
+		print("")
 		path_dir = current_path
-    	management_input = user_input("<color=#43c12d>" + path_dir[1:] + "/$" + active_user + "<color=#ffffff>> <color=#fd573a>")
+    	management_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 		if management_input == "1" then
 			UploadHack()
 		else if management_input == "2" then
@@ -356,7 +367,7 @@ end function
 
 BeginHack = function(mLib)
 	pass = false
-	print("<color=#f1ef31><b>-- Scan started --</b></color>")
+	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
 	memories = metaxploit.scan(mLib)
 	for mem_addr in memories
 		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
@@ -371,7 +382,7 @@ BeginHack = function(mLib)
 				else
 					result = mLib.overflow(mem_addr, exploit, opt_var)
 					if result then
-						InfoMessage("New password: <b>"+opt_var+"</b>")
+						InfoMessage("New password: <b>" + opt_var + "</b>")
 						wait(2)
 					end if
 				end if
@@ -408,7 +419,7 @@ BeginHack = function(mLib)
 							InfoMessage("Attempting to decipher password...")
 							pass_content = result.File("/etc/passwd").get_content.split("\n")
 							pass = GetPassword(pass_content[0].split(":"))
-							InfoMessage("Root password: <b>"+ pass +"</b>")
+							InfoMessage("Root password: <b>" + pass + "</b>")
 							wait(2)
 						end if
 					else
@@ -478,8 +489,8 @@ BeginHack = function(mLib)
 	metaLib = null
 	comp = get_shell.host_computer.File("/")
 
-	print("<color=#fd573a>Library: <color=#ffffff>"+mLib.lib_name+" <color=#fd573a>- Version: <color=#ffffff>"+mLib.version+"</color>")
-	print("<color=#f1ef31><b>-- Scan finished --</b></color>")
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + "- Version: " + COLOUR_WHITE + mLib.version + "</color>")
+	print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
 	wait(2)
 	ContinueProgram()
 end function
@@ -487,19 +498,20 @@ end function
 MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
-		shell = get_shell
-		host_comp = shell.host_computer
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Main Menu<color=#ffffff> #--]</b></color>")
-		print("<color=#ffffff>1) <color=#fd573a>Remote & Local IP Port Hack</color>")
-		print("<color=#ffffff>2) <color=#fd573a>Local Library Hack</color>") // enter for example init.so - it must be .so at the end
-		print("<color=#ffffff>3) <color=#fd573a>Remote Hack File Management (User & Password)</color>")
-		print("<color=#ffffff>4) <color=#fd573a>Decipher Hash</color>")
-		print("<color=#ffffff>5) <color=#fd573a>List Directory Files</color>")
-		print("<color=#ffffff>6) <color=#fd573a>Clear Logs</color>")
-		print("<color=#ffffff>7) <color=#fd573a>Exit Program</color>")
-		print("<color=#ffffff><b>[--# <color=#f1ef31>Zenora Tool v" + version_number + " by Aphex & GOLDEN<color=#ffffff> #--]</b></color>")
-		
-    	main_input = user_input("<color=#43c12d>"+active_user+"@"+host_comp.get_name+":"+current_path+ "$<color=#ffffff>> <color=#fd573a>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Main Menu" + COLOUR_WHITE + " #--]</b></color>")
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Remote & Local IP Port Hack</color>")
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Local Library Hack</color>") // enter for example init.so - it must be .so at the end
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Remote Hack File Management (User & Password)</color>")
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Decipher Hash</color>")
+		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "List Directory Files</color>")
+		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "Clear Logs</color>")
+		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
+		print("")
+		host_comp = get_shell.host_computer
+		path_dir = current_path
+    	// main_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+		main_input = user_input(COLOUR_WHITE + active_user + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE) // Experimental
 		if main_input == "1" then
 			RemoteLocalHack()
 		else if main_input == "2" then
@@ -558,23 +570,23 @@ ListTree = function(file)
 		wait(2)
 		MainMenu()
 	end if
-	permission = "|_"+file.permissions.replace("-", "_")
-	print(permission+" <color=#0080FF>"+file.path+"</color>")
+	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
+	print(permission + COLOUR_BLUE + file.path + "</color>")
 	
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
 			spaces = " "*(f.path.split("/").len-1)
-			permission = spaces+"|_"+f.permissions.replace("-", "_")			
+			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
 
 			if f.is_folder then
-				print(permission+" <color=#0080FF>"+f.name()+"</color>")
+				print(permission + " " + COLOUR_GREEN + f.name() + "</color></b>")
 				list_dir(f)
 			else
 				if f.is_binary then
-					print(permission+" <color=green>"+f.name+"</color>*")
+					print(permission + "</b> " + COLOUR_YELLOW + f.name + "*</color>")
 				else
-					print(permission+" <color=white>"+f.name+"</color>")
+					print(permission + "</b> " + COLOUR_YELLOW + f.name + "</color>")
 				end if
 			end if
 		end for
