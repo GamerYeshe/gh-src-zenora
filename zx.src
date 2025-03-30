@@ -23,6 +23,21 @@ PORT_FTP = 21
 PORT_SSH = 22
 
 version_number = "2.0"
+// get the current path for example user@deviceName:/home/user$>
+get_path = function()
+	host_comp = get_shell.host_computer
+	user = active_user
+	// Color user depending on privilage
+	if user == "root" then
+		user = COLOUR_RED + user + "</color>"
+	else if user != "guest" then
+		user = COLOUR_BLUE + user + "</color>"
+	else
+		user = "<color=grey>" + user + "</color>"
+	end if
+	// return user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+ 	return user + COLOUR_WHITE + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE // Experimental
+end function
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
@@ -50,17 +65,31 @@ ip_addr = null
 port_num = null
 opt_var = null
 metaLib = null
+
+pkg = get_custom_object
 comp = get_shell.host_computer.File("/")
 
+// Import the main shell else get_shell
+if not pkg.hasIndex("shell") then _shell = get_shell else _shell = pkg.shell // Imports the main shell else get_shell
+_computer = _shell.host_computer
+
 // include "metaxploit.so"
-metaxploit = include_lib("/lib/metaxploit.so")
-if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
-if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
+if not pkg.hasIndex("metaxploit") then
+	metaxploit = include_lib("/lib/metaxploit.so")
+	if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
+	if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
+else
+	metaxploit = pkg.metaxploit
+end if
 
 // include "crypto.so"
-cryptools = include_lib("/lib/crypto.so")
-if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
-if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
+if not pkg.hasIndex("cryptools") then
+	cryptools = include_lib("/lib/crypto.so")
+	if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
+	if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
+else
+	cryptools = pkg.cryptools
+end if
 
 NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
 	if not get_shell.host_computer.is_network_active then
@@ -175,34 +204,39 @@ ConnectService = function()
 		wait(2)
 		MainMenu()
 	end if
+
 	return remote_shell
+end function
+
+DisplayMenu = function(title, options)
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + title + COLOUR_WHITE + " #--]</b></color>") // Title of the Menu
+	// Print Options
+	index = 1
+	for option in options
+		print(COLOUR_WHITE + index +") " + COLOUR_ORANGE + option + "</color>")
+	end for
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>\n") // Tool name with version
 end function
 
 // LOG CLEARING MENU
 LogsMenu = function() 
 	while true
 		clear_screen
-
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Clear Logs Menu" + COLOUR_WHITE + " #--]</b></color>") // Clear Logs Menu  |
-		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Local System</color>") // Local System  |  Clears local logs
-		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remote System (User & Password)</color>") // Remote System  |  Clears logs via IP, user, pass
-		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>") // Main Menu  |
-		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>") // Exit Program
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>") // Tool name and our Credits :)
-		print("")
+		options = ["Local System", "Remote System", "Main Menu", "Exit Program"]
+		DisplayMenu("Clear Logs Menu", options)
 		path_dir = current_path
-    	logs_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		if logs_input == "1" then
-			shell = get_shell
-			ClearLogs(shell)
-			
-		else if logs_input == "2" then
+    	index = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+		// Local System
+		if index == "1" then
+			ClearLogs(get_shell)
+		// Remote System
+		else if index == "2" then
 			ClearLogs(ConnectService())
-			
-		else if logs_input == "3" then
+		// Main Menu
+		else if index == "3" then
 			MainMenu()
-			
-		else if logs_input == "4" then
+		// Exit Program
+		else if index == "4" then
 			exit
 		end if
 	end while
@@ -364,13 +398,14 @@ end function
 HackManagementMenu = function()
 	while true
 		clear_screen
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
-		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
-		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
-		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
-		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
-		print("")
+		//print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
+		//print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
+		//print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
+		//print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
+		//print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		//print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
+		options = ["Upload Hacks", "Remove Hacks", "Main Menu", "Exit Program"]
+		DisplayMenu("Remote Hack File Management Menu", options)
 		path_dir = current_path
     	management_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 		if management_input == "1" then
