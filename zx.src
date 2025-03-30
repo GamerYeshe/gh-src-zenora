@@ -8,8 +8,7 @@
 
 // REMINDER! - Improvement Goals - REMINDER!
 // R SHELL NEEDS IMPLEMENTATION! - IN PROGRESS
-// BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE 
-// Export Mail or Directory Structure or both into a text file - OPTIONAL
+// BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE - IN PROGRESS
 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
@@ -23,25 +22,9 @@ PORT_FTP = 21
 PORT_SSH = 22
 
 version_number = "2.0"
-// get the current path for example user@deviceName:/home/user$>
-get_path = function()
-	host_comp = get_shell.host_computer
-	user = active_user
-	// Color user depending on privilage
-	if user == "root" then
-		user = COLOUR_RED + user + "</color>"
-	else if user != "guest" then
-		user = COLOUR_BLUE + user + "</color>"
-	else
-		user = "<color=grey>" + user + "</color>"
-	end if
-	// return user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
- 	return user + COLOUR_WHITE + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE // Experimental
-end function
 
-ErrorMessage = function(message, ext=false) // ext == true | exit the program
-	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
-	if ext then exit()
+ErrorMessage = function(message)
+	print(COLOUR_RED + "Error: " + COLOUR_WHITE + message + "</color>")
 end function
 
 InfoMessage = function(message)
@@ -52,11 +35,10 @@ SyntaxMessage = function(message)
 	print(COLOUR_PURPLE + "Syntax: " + COLOUR_WHITE + message + "</color>")
 end function
 
-RequestInput = function(message, customText="")
+RequestInput = function(message)
     print(COLOUR_WHITE + message + "</color>")
 	path_dir = current_path
-    // request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-	request_input = user_input("\" + COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
+    request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 	return request_input
 end function
 
@@ -65,31 +47,159 @@ ip_addr = null
 port_num = null
 opt_var = null
 metaLib = null
-
-pkg = get_custom_object
 comp = get_shell.host_computer.File("/")
 
-// Import the main shell else get_shell
-if not pkg.hasIndex("shell") then _shell = get_shell else _shell = pkg.shell // Imports the main shell else get_shell
-_computer = _shell.host_computer
-
-// include "metaxploit.so"
-if not pkg.hasIndex("metaxploit") then
-	metaxploit = include_lib("/lib/metaxploit.so")
-	if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
-	if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
-else
-	metaxploit = pkg.metaxploit
+metaxploit = include_lib("/lib/metaxploit.so")
+if not metaxploit then
+	metaxploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not metaxploit then
+	ErrorMessage("Cannot find metaxploit library in lib or current path folder.")
+	wait(2)
+	exit
 end if
 
-// include "crypto.so"
-if not pkg.hasIndex("cryptools") then
-	cryptools = include_lib("/lib/crypto.so")
-	if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
-	if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
-else
-	cryptools = pkg.cryptools
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
 end if
+if not cryptools then
+	ErrorMessage("Cannot find crypto library in lib or current path folder.")
+	wait(2)
+	exit
+end if
+
+WifiCrack = function()
+	host_comp = get_shell.host_computer
+	if host_comp.wifi_networks("wlan0")[0] != null then
+		interface = "wlan0"
+	end if
+	if host_comp.wifi_networks("eth0")[0] != null then
+		interface = "eth0"
+	end if
+	devices = host_comp.network_devices.trim.split(" ")
+	print(format_columns("[#] [INTERFACE] [CHIPSET] [MONITOR]\n" + "[0] [" + devices[0] + "] [" + devices[1] + "] [" + devices[2] + "]") + "\n")
+	fh1 = 420000
+	fh2 = 420000
+	networks = []
+	networks = host_comp.wifi_networks(interface)
+	netlen = networks.len
+	bssid = ""
+	essid = ""
+	bss = range(1, netlen)
+	pwr = range(1, netlen)
+	ess = range(1, netlen)
+	ack = range(1, netlen)
+	infonet = range(1, netlen)
+	tack = ""
+	countnet = ""
+	for net in networks
+		acks = ceil(300000/net.split(" ")[1].remove("%").val)
+		if acks < fh2 then
+			essid = net.split(" ")[2]
+			fh2 = acks
+		end if
+	end for
+	for net in networks
+		countnet = networks.indexOf(net)
+		acks = ceil(300000/net.split(" ")[1].remove("%").val)
+		if acks < fh1 then
+			bssid = net.split(" ")[0]
+			fh1 = acks
+		end if
+		if countnet != netlen then
+			bss[countnet] = net.split(" ")[0]
+			pwr[countnet] = net.split(" ")[1]
+			ess[countnet] = net.split(" ")[2]
+			ack[countnet] = acks
+		end if
+		if countnet == 0 then
+			infonet = "[#] [ESSID] [BSSID] [ACKs] [POWER] [STRENGTH]\n"
+		end if
+		if essid == net.split(" ")[2] then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_RED + "[STRONGEST]</color>\n"
+			tack = acks
+		else if pwr[countnet].remove("%").val >= 63 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_ORANGE + "[STRONG]</color>\n"
+		else if pwr[countnet].remove("%").val >= 42 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_YELLOW + "[MEDIUM]</color>\n"
+		else if pwr[countnet].remove("%").val < 42 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_GREEN + "[WEAK]</color>\n"
+		end if
+		if acks != tack then
+			acks = tack
+		end if
+	end for
+	print(format_columns(infonet))
+	cap = host_comp.File(current_path+"/file.cap")
+	if cap then
+		cap.delete
+	end if
+	cryptools.airmon("start", interface)
+	print(COLOUR_YELLOW + "<b>-- Monitoring started --</b></color>")
+	check = false
+	while(check == false)
+		selectnet = RequestInput("Enter a connection number to crack the wifi password: ").to_int
+		if selectnet then
+			if typeof(selectnet) == "number" and selectnet >= 0 and selectnet <= netlen then
+				InfoMessage("You have selected <b>" + ess[selectnet] + "</b> network.</color>")
+				InfoMessage("Target value of ACKs: [" + ack[selectnet] + "]</color>")
+				if ack[selectnet] <= 7000 then
+					InfoMessage("Estimated time: 1-2 minutes...</color>")
+				else
+					InfoMessage("Estimated time: 5-10 minutes... Could be longer...</color>")
+				end if
+				check = true
+			else
+				ErrorMessage("You have entered an invalid number.")
+				check = false
+				wait(2)
+				MainMenu()
+			end if
+		else
+			ErrorMessage("You must enter a valid number.")
+			wait(2)
+			MainMenu()
+		end if
+	end while
+	print(COLOUR_YELLOW + "<b>-- Aireplay started --</b></color>")
+	r1 = cryptools.aireplay(bss[selectnet], ess[selectnet], ack[selectnet])
+	wait(2)
+	if typeof(r1) == "string" then
+		ErrorMessage("Variable r1 returned string! An issue has occured.")
+		wait(2)
+		MainMenu()
+	end if
+	pass = cryptools.aircrack(current_path+"/file.cap")
+	if pass == "" then
+		ErrorMessage("Variable pass has returned null in file.cap!")
+		wait(2)
+		MainMenu()
+	end if
+	print(COLOUR_YELLOW + "<b>-- Aircrack started --</b></color>")
+	cap = host_comp.File(current_path+"/file.cap")
+	if cap then
+	cap.delete
+	end if
+	InfoMessage("Monitoring has stopped...")
+	cryptools.airmon("stop", interface)
+	check = false
+	while(check == false)
+		quest = RequestInput("Do you want to connect to the network? y/n")
+		if quest == "y" then
+			host_comp.connect_wifi(interface, bss[selectnet], ess[selectnet], pass)
+			InfoMessage("You are now connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
+			check = true
+		else if quest == "n" then
+			InfoMessage("You are not connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
+			check = true
+		else
+			check = false
+			continue
+		end if
+		ContinueProgram()
+	end while
+end function
 
 NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
 	if not get_shell.host_computer.is_network_active then
@@ -125,7 +235,7 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 			end if
 		end if
 		if ports then
-			info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN</color>"   
+			info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN</color>"
 			print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
 			InfoMessage("ESSID: " + COLOUR_WHITE + router.essid_name + "</color>")
 			InfoMessage("BSSID: " + COLOUR_WHITE + router.bssid_name + "</color>")
@@ -167,118 +277,108 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 	end if
 end function
 
-// Returns a FTP or SSH shell else go back to MainMenu
+ReverseShell = function()
+end function
+
 ConnectService = function()
-	// Target IP
 	ip_input = RequestInput("Target IP: ")
-	if not is_valid_ip(ip_input) then
+	if is_valid_ip(ip_input) then
+		username_input = RequestInput("Target Username: ")
+		if username_input then
+			pass_input = RequestInput("Target Password: ")
+			if pass_input then
+				shell = get_shell
+				remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
+				if typeof(remote_shell) == "string" then
+					ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
+					wait(2)
+					remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
+				end if
+				if typeof(remote_shell) == "string" then
+					ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
+					wait(2)
+					MainMenu()
+				end if
+				return remote_shell
+			else
+				ErrorMessage("You have not entered a target user password.")
+				wait(2)
+				MainMenu()
+			end if
+		else
+			ErrorMessage("You have not entered a target username.")
+			wait(2)
+			MainMenu()
+		end if
+	else
 		ErrorMessage("You have entered an invalid target IP address.")
 		wait(2)
 		MainMenu()
 	end if
-	// Target Username
-	username_input = RequestInput("Target Username: ")
-	if not username_input then
-		ErrorMessage("You have not entered a target username.")
-		wait(2)
-		MainMenu()
-	end if
-	// Target Password
-	pass_input = RequestInput("Target Password: ")
-	if not pass_input then
-		ErrorMessage("You have not entered a target user password.")
-		wait(2)
-		MainMenu()
-	end if
-
-	// Connect Via SSH or FTP
-	remote_shell = get_shell.connect_service(ip_input, 22, username_input, pass_input)
-	if typeof(remote_shell) == "string" or remote_shell == null then
-		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
-		wait(2)
-		remote_shell = get_shell.connect_service(ip_input, 21, username_input, pass_input)
-	end if
-	// Failed to Connect via SSH or FTP
-	if typeof(remote_shell) == "string" or remote_shell == null then
-		ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
-		wait(2)
-		MainMenu()
-	end if
-
-	return remote_shell
 end function
 
-DisplayMenu = function(title, options)
-	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + title + COLOUR_WHITE + " #--]</b></color>") // Title of the Menu
-	// Print Options
-	index = 1
-	for option in options
-		print(COLOUR_WHITE + index +") " + COLOUR_ORANGE + option + "</color>")
-	end for
-	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>\n") // Tool name with version
-end function
-
-// LOG CLEARING MENU
-LogsMenu = function() 
+LogsMenu = function() // LOG CLEARING MENU
 	while true
 		clear_screen
-		options = ["Local System", "Remote System", "Main Menu", "Exit Program"]
-		DisplayMenu("Clear Logs Menu", options)
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Clear Logs Menu" + COLOUR_WHITE + " #--]</b></color>")
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Local System</color>") // Clears local logs
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remote System (User & Password)</color>") // Clears logs via IP, user, pass
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
+		print("")
 		path_dir = current_path
-    	index = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		// Local System
-		if index == "1" then
-			ClearLogs(get_shell)
-		// Remote System
-		else if index == "2" then
+    	logs_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+		if logs_input == "1" then
+			shell = get_shell
+			ClearLogs(shell)
+		else if logs_input == "2" then
 			ClearLogs(ConnectService())
-		// Main Menu
-		else if index == "3" then
+		else if logs_input == "3" then
 			MainMenu()
-		// Exit Program
-		else if index == "4" then
+		else if logs_input == "4" then
 			exit
+		else
+			continue
 		end if
 	end while
 end function
 
 ClearLogs = function(shell)
-	if typeof(shell) == "computer" then computer = shell else computer = shell.host_computer // if shell by chance is a host_computer
-	log_file = computer.File("/var/system.log")
-	// if log_file doesnt exists
+	log_file = shell.host_computer.File("/var/system.log")
 	if not log_file then
 		ErrorMessage("Log file does not exist at /var/system.log!")
 		wait(2)
-		return
 	end if
-	// Check permission on log_file if can read else return
-	if not log_file.has_permission("r") then
-		ErrorMessage("You are unauthorized to access the log file. Permission denied.")
-		wait(2)
-		return
-	end if
-	// create new "system.log" file on /root
-	err_code = computer.touch("/root", "system.log")
-	if err_code != 1 then
-		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
-		wait(2)
-		return
-	end if
-	// Try to move new_log file to /var
-	new_log = computer.File("/root/system.log")
-	err_code = new_log.move("/var", "system.log")
-	if typeof(err_code) == "string" then // if true try delete new_log
-		ErrorMessage("Log file move to /var/ is unsuccessful! [" + err_code + "]")
-		wait(2)
-		err_code = new_log.delete
-		if typeof(err_code) == "string" then
-			ErrorMessage("Unable to move created system.log file! [" + err_code + "]")
+	if log_file != null then
+		if not log_file.has_permission("r") then
+			ErrorMessage("You are unauthorized to access the log file. Permission denied.")
 			wait(2)
+		else
+			new_log = shell.host_computer.touch("/root/", "system.log")
+			if typeof(new_log) == "string" then
+				ErrorMessage("Log file creation is unsuccessful! [" + new_log + "]")
+				wait(2)
+			end if
+			select_log = shell.host_computer.File("/root/system.log")
+			move_log = select_log.move("/var/", "system.log")
+			if typeof(move_log) == "string" then
+				ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
+				wait(2)
+				delete_result = select_log.delete
+				if typeof(delete_result) == "string" then
+					ErrorMessage("Unable to move created system.log file! [" + delete_result + "]")
+					wait(2)
+				end if
+			else
+				InfoMessage("Log file has been cleared successfully.")
+				wait(2)
+			end if
 		end if
+	else
+		ErrorMessage("Log file is empty.")
+		wait(2)
 	end if
-
-	InfoMessage("Log file has been cleared successfully.")
-	wait(2)
 end function
 
 RemoteLocalHack = function()
@@ -398,14 +498,13 @@ end function
 HackManagementMenu = function()
 	while true
 		clear_screen
-		//print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
-		//print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
-		//print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
-		//print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
-		//print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
-		//print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
-		options = ["Upload Hacks", "Remove Hacks", "Main Menu", "Exit Program"]
-		DisplayMenu("Remote Hack File Management Menu", options)
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Remote Hack File Management Menu" + COLOUR_WHITE + " #--]</b></color>")
+		print(COLOUR_WHITE + "1) " + COLOUR_ORANGE + "Upload Hacks</color>")
+		print(COLOUR_WHITE + "2) " + COLOUR_ORANGE + "Remove Hacks</color>")
+		print(COLOUR_WHITE + "3) " + COLOUR_ORANGE + "Main Menu</color>")
+		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
+		print("")
 		path_dir = current_path
     	management_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 		if management_input == "1" then
@@ -615,29 +714,30 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		print(COLOUR_WHITE + "4) " + COLOUR_ORANGE + "Decipher Hash</color>")
 		print(COLOUR_WHITE + "5) " + COLOUR_ORANGE + "List Directory Files</color>")
 		print(COLOUR_WHITE + "6) " + COLOUR_ORANGE + "NMAP IP Address</color>")
-		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Wifi Cracker (Under Construction)</color>")
-		print(COLOUR_WHITE + "8) " + COLOUR_ORANGE + "Clear Logs</color>")
-		print(COLOUR_WHITE + "9) " + COLOUR_ORANGE + "Exit Program</color>")
+		print(COLOUR_WHITE + "7) " + COLOUR_ORANGE + "Wifi Cracker</color>")
+		print(COLOUR_WHITE + "8) " + COLOUR_ORANGE + "Reverse Shell</color>")
+		print(COLOUR_WHITE + "9) " + COLOUR_ORANGE + "Clear Logs</color>")
+		print(COLOUR_WHITE + "0) " + COLOUR_ORANGE + "Exit Program</color>")
 		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>")
 		print("")
-		host_comp = get_shell.host_computer
 		path_dir = current_path
-    	// main_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		main_input = user_input(COLOUR_WHITE + active_user + "@" + host_comp.get_name + ":" + path_dir + "$> " + COLOUR_ORANGE) // Experimental
+    	main_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
 		if main_input == "1" then
 			RemoteLocalHack()
 		else if main_input == "2" then
-			local_input = RequestInput("Local Library File (ex: init.so): ", "/lib/")
+			host_comp = get_shell.host_computer
+			local_input = RequestInput("Local Library File (ex: init.so): ")
 			if local_input then
-				lib_file = host_comp.File("/lib/" + local_input)
+				lib_file = host_comp.File("/lib/" + lib_input)
 				if lib_file then
 					if not lib_file.has_permission("r") then
 						ErrorMessage("You are unauthorized to access the log file. Permission denied.")
 						wait(2)
 						continue
+					else
+						metaLib = metaxploit.load("/lib/" + lib_input)
+						BeginHack(metaLib)
 					end if
-					metaLib = metaxploit.load("/lib/" + local_input)
-					BeginHack(metaLib)
 				else
 					ErrorMessage("Library file does not exist.")
 					wait(2)
@@ -652,17 +752,18 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			DecipherHash()
 		else if main_input == "5" then
 			location_input = RequestInput("Path Location: ")
-			path_result = host_comp.File(location_input)
+			path_result = get_shell.host_computer.File(location_input)
 			ListTree(path_result)
-			ContinueProgram()
 		else if main_input == "6" then
 			nmap_input = RequestInput("Target IP: ")
 			NMAP(nmap_input)
 		else if main_input == "7" then
-			continue
+			WifiCrack()
 		else if main_input == "8" then
-			LogsMenu()
+			ReverseShell()
 		else if main_input == "9" then
+			LogsMenu()
+		else if main_input == "0" then
 			exit
 		else
 			continue
@@ -682,40 +783,33 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 end function
 
 ListTree = function(file)
-	if not file then
-		SyntaxMessage("File Doesnt exist")
-		wait(2)
-		MainMenu()
-	end if
-	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-	print(permission + COLOUR_BLUE + file.path + "</color>")
-	
+	print("|_" + file.permissions + COLOUR_BLUE + file.path + "</color>")
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
 			spaces = " "*(f.path.split("/").len-1)
-			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
-
 			if f.is_folder then
-				print(permission + " " + COLOUR_GREEN + f.name() + "</color></b>")
+				print(spaces + COLOUR_WHITE + "|_" + "<b>" + f.permissions + " " + COLOUR_GREEN + f.name() + "</color></b>")
 				list_dir(f)
 			else
 				if f.is_binary then
-					print(permission + "</b> " + COLOUR_YELLOW + f.name + "*</color>")
+					print(spaces + COLOUR_WHITE + "|_" + "<b>" + f.permissions + "</b> " + COLOUR_YELLOW + f.name + "*</color>")
 				else
-					print(permission + "</b> " + COLOUR_YELLOW + f.name + "</color>")
+					print(spaces + COLOUR_WHITE + "|_" + "<b>" + f.permissions + "</b> " + COLOUR_YELLOW + f.name + "</color>")
 				end if
 			end if
 		end for
 	end function
-
 	list_dir(file)
+	ContinueProgram()
 end function
 
 if params.len > 0 then
 	if params[0] == "-h" then // Help option - lists shortcut commands
 		InfoMessage(program_path.split("/")[-1] + " -l <path> - List directory")
 		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
+		InfoMessage(program_path.split("/")[-1] + " -w - Attempts wifi cracking")
+		InfoMessage(program_path.split("/")[-1] + " -d - Decipher option")
 		exit
 	else if params[0] == "-l" then // ls shortcut
 		if params.len > 1 then
@@ -756,8 +850,10 @@ if params.len > 0 then
 			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
 			exit
 		end if
-	else if params[0] == "-v" or params[0] == "--version" then
-		exit(program_path.split("/")[-1]+" "+ version_number)
+	else if params[0] == "-w" then // Wifi Cracking
+		WifiCrack()
+	else if params[0] == "-d" then // Wifi Cracking
+		DecipherHash()
 	else
 		ErrorMessage("That command is not recognized!")
 		exit
