@@ -964,7 +964,11 @@ else if params[0] == "-l" or params[0] == "--ls" or params[0] == "--list" then /
 		SyntaxMessage(program_path.split("/")[-1] + " -l <directory path>") 
 		exit
 	end if
-	if input_path == current_path then InfoMessage("Showing current path...") else InfoMessage("Showing " + input_path + " path...")
+	if input_path == current_path then
+		 InfoMessage("Showing current path...")
+	else
+		 InfoMessage("Showing " + input_path + " path...")
+	end if
 	wait(1)
 	ListTree(file_path)
 // NMAP shortcut
@@ -996,7 +1000,7 @@ else if params[0] == "-d" then
 	end if
 // Current Version
 else if params[0] == "-v" or params[0] == "--version" then
-	exit(program_path.split("/")[-1]+" "+ version_number)
+	exit(program_path.split("/")[-1]+" v" + version_number)
 else
 	ErrorMessage("That command is not recognized!")
 	get_shell.launch(program_path, "-h")
