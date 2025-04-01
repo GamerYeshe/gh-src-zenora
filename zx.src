@@ -41,7 +41,7 @@ RequestInput = function(message, customText="")
     print(COLOUR_WHITE + message + "</color>")
 	path_dir = current_path
     // request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-	request_input = user_input("\" + COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
+	request_input = user_input(COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
 	return request_input
 end function
 
@@ -95,7 +95,7 @@ end function
 StartTerminal = function(shell, bypass_question=false)
 	// bypass the question
 	if not bypass_question then
-		terminal_input = RequestInput("Start terminal? Y/n")
+		terminal_input = RequestInput("Start terminal? y/n")
 	else
 		terminal_input = "y"
 	end if
@@ -638,8 +638,12 @@ GetPassword = function(userPass)
 	return password
 end function
 
-DecipherHash = function()
-	decipher_hash = RequestInput("Enter Path/Hash: ")
+DecipherHash = function(hash)
+	if hash then
+		decipher_hash = hash
+	else
+		decipher_hash = RequestInput("Enter Path/Hash: ")
+	end if
 	if decipher_hash then
 		file = get_shell.host_computer.File(decipher_hash)
 		if file then
@@ -709,7 +713,7 @@ BeginHack = function(mLib)
 				end if
 				if typeof(result) == "shell" then
 					while true
-						terminal_input = RequestInput("Start terminal? Y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
+						terminal_input = RequestInput("Start terminal? y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
 						if terminal_input.lower == "y" then
 							result.start_terminal
 							ContinueProgram()
@@ -891,7 +895,7 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 end function
 
 ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
-	continue_input = RequestInput("Continue to Main Menu? Y/n")
+	continue_input = RequestInput("Continue to Main Menu? y/n")
 	if continue_input.lower == "y" then
 		MainMenu()
 	else if continue_input.lower == "n" then
