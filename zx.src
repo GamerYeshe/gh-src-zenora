@@ -7,8 +7,8 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// Mail.txt details need printing for active_user via ConnectService(), then clear logs (Suggestion: New menu for Mail, and one for Bank too) - IN PROGRESS
-// BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE - IN PROGRESS
+// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - IN PROGRESS
+// Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
@@ -384,11 +384,13 @@ ConnectService = function()
 	end if
 
 	// Connect Via SSH or FTP
-	remote_shell = get_shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
+	shell = get_shell
+	remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
+	print(shell + " " + ip_input + " " + username_input + " " + pass_input)
 	if typeof(remote_shell) == "string" or remote_shell == null then
 		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
 		wait(2)
-		remote_shell = get_shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
+		remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
 	end if
 	// Failed to Connect via SSH and FTP
 	if typeof(remote_shell) == "string" or remote_shell == null then
@@ -418,15 +420,15 @@ end function
 LogsMenu = function() 
 	while true
 		clear_screen
-		options = ["Local System", "Remote System", "Main Menu", {0: "Exit Program"}]
+		options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
 		DisplayMenu("Clear Logs Menu", options)
     	index = user_input(get_path)
 		// Local System
 		if index == "1" then
-			ClearLogs(get_shell)
+			ClearLogs(ConnectService())
 		// Remote System
 		else if index == "2" then
-			ClearLogs(ConnectService())
+			ClearLogs(get_shell)
 		// Main Menu
 		else if index == "3" then
 			MainMenu()
@@ -598,9 +600,9 @@ end function
 HackManagementMenu = function()
 	while true
 		clear_screen
-		options = ["Upload Hacks (Remote)"]
+		options = ["Upload Hacks (Remote SSH/FTP - Credentials Required)"]
 		options.push("Remove Hacks (Local)")
-		options.push("Remove Hacks (Remote)")
+		options.push("Remove Hacks (Remote SSH/FTP - Credentials Required)")
 		options.push("Main Menu")
 		options.push({0: "Exit Program"})
 		DisplayMenu("Hack File Management Menu", options)
@@ -818,13 +820,14 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		clear_screen
 		options  =  ["Remote & Local IP Port Hack"]
 		options.push("Local Library Hack") // enter for example init.so - it must be .so at the end
-		options.push("Hack File Management (User & Password)")
+		options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
+		options.push("Bank & Mail Management") 
 		options.push("Decipher Hash")
 		options.push("List Directory Files")
 		options.push("NMAP IP Address")
 		options.push("Wifi Cracker")
 		options.push("R-Shell Interface")
-		options.push("Clear Logs")
+		options.push("Clear Logs") // clear logs locally or remotely (remote ssh or ftp port required)
 		options.push({0: "Exit Program"})
 		DisplayMenu("Main Menu", options)
 		
@@ -903,16 +906,15 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 	end if
 end function
 
-ListTree = function(file, print_directory=true)
+ListTree = function(file)
 	if not file then
-		ErrorMessage("Path doesnt exist")
+		SyntaxMessage("File Doesnt exist")
 		wait(2)
 		MainMenu()
 	end if
 	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-	if print_directory then print(permission + COLOUR_BLUE + file.path + "</color>")
-	folders = {"files": [], "binary": []}
-
+	print(permission + COLOUR_BLUE + file.path + "</color>")
+	
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
@@ -920,89 +922,86 @@ ListTree = function(file, print_directory=true)
 			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
 
 			if f.is_folder then
-				if print_directory then print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
+				print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
 				list_dir(f)
-			else if f.is_binary then
-				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
-				outer.folders["binary"].push(f)
 			else
-				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
-				outer.folders["files"].push(f)
+				if f.is_binary then
+					print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
+				else
+					print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
+				end if
 			end if
 		end for
-	return folders
 	end function
 
 	list_dir(file)
 end function
 
-if params.len <= 0 then
-	if main_input == null then
-		MainMenu()
-	end if
-	exit
-end if
-// List shortcut commands
-if params[0] == "-h" or params[0] == "--help" then // Help option - lists shortcut commands
-	InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
-	InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
-	InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
-	InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
-	InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
-	exit
-// List directory
-else if params[0] == "-l" or params[0] == "-ls" or params[0] == "--list" then // ls shortcut
-	if params.len > 1 then input_path = params[1] else input_path = current_path // If user inputed a path else current path
-	file_path = get_shell.host_computer.File(input_path)
-	// file doesnt exists
-	if not file_path then
-		ErrorMessage("Path doesnt exists!")
-		SyntaxMessage(program_path.split("/")[-1] + " -l <directory path>") 
+if params.len > 0 then
+	if params[0] == "-h" then // Help option - lists shortcut commands
+		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
+		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
+		InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
+		InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
+		InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
 		exit
-	// if inputed path is not a directory
-	else if not file_path.is_folder then
-		SyntaxMessage(program_path.split("/")[-1] + " -l <directory path>") 
-		exit
-	end if
-	if input_path == current_path then
-		 InfoMessage("Showing current path...")
-	else
-		 InfoMessage("Showing " + input_path + " path...")
-	end if
-	wait(1)
-	ListTree(file_path)
-// NMAP shortcut
-else if params[0] == "-n" then
-	if params.len > 1 then
-		if is_valid_ip(params[1]) then
-			shortcut = true
-			NMAP(params[1], shortcut)
+	else if params[0] == "-l" then // ls shortcut
+		if params.len > 1 then
+			input_path = get_shell.host_computer.File(params[1])
+			if input_path then
+				if input_path.has_permission("r") then
+					InfoMessage("Showing " + params[1] + " path...")
+					wait(1)
+					ListTree(input_path)
+					ContinueProgram()
+				else
+					ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
+					exit
+				end if
+			else
+				ErrorMessage("You have specified an incorrect path!")
+				SyntaxMessage(program_path.split("/")[-1] + " -l <path location>") 
+				exit
+			end if
 		else
-			ErrorMessage("You have entered an invalid target IP address.")
+			current = get_shell.host_computer.File(current_path)
+			InfoMessage("Showing current path...")
+			wait(1)
+			ListTree(current)
+			ContinueProgram()
+		end if
+	else if params[0] == "-n" then // NMAP shortcut
+		if params.len > 1 then
+			if is_valid_ip(params[1]) then
+				shortcut = true
+				NMAP(params[1], shortcut)
+			else
+				ErrorMessage("You have entered an invalid target IP address.")
+				exit
+			end if
+		else
+			ErrorMessage("You have not entered a target IP address.")
+			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
 			exit
 		end if
-	else
-		ErrorMessage("You have not entered a target IP address.")
-		SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
-		exit
-	end if
-// Wifi Cracking
-else if params[0] == "-w" then 
-	WifiCrack()
-// Decipher
-else if params[0] == "-d" then 
-	if params.len > 1 then
+	else if params[0] == "-w" then // Wifi Cracking
+		WifiCrack()
+	else if params[0] == "-d" then // Decipher
+		if params.len > 1 then
 			DecipherHash(params[1])
+		else
+			ErrorMessage("You must enter a decipher hash.")
+			SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
+			exit
+		end if
+	else if params[0] == "-v" or params[0] == "--version" then
+		exit(program_path.split("/")[-1]+" v" + version_number)
 	else
-		ErrorMessage("You must enter a decipher hash.")
-		SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
+		ErrorMessage("That command is not recognized!")
 		exit
 	end if
-// Current Version
-else if params[0] == "-v" then
-	exit(program_path.split("/")[-1]+" v" + version_number)
-else
-	ErrorMessage("That command is not recognized!")
-	get_shell.launch(program_path, "-h")
-	exit
+end if
+
+if main_input == null then
+	MainMenu()
 end if
