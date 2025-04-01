@@ -7,9 +7,8 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// R SHELL NEEDS IMPLEMENTATION! - IN PROGRESS
+// Mail.txt details need printing for active_user via ConnectService(), then clear logs (Suggestion: New menu for Mail, and one for Bank too) - IN PROGRESS
 // BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE - IN PROGRESS
-// Export Mail or Directory Structure or both into a text file - OPTIONAL
 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
@@ -385,11 +384,11 @@ ConnectService = function()
 	end if
 
 	// Connect Via SSH or FTP
-	remote_shell = get_shell.connect_service(ip_input, PORT_SSH, username_input, pass_input)
+	remote_shell = get_shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
 	if typeof(remote_shell) == "string" or remote_shell == null then
 		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
 		wait(2)
-		remote_shell = get_shell.connect_service(ip_input, PORT_FTP, username_input, pass_input)
+		remote_shell = get_shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
 	end if
 	// Failed to Connect via SSH and FTP
 	if typeof(remote_shell) == "string" or remote_shell == null then
@@ -397,7 +396,6 @@ ConnectService = function()
 		wait(2)
 		MainMenu()
 	end if
-
 	return remote_shell
 end function
 
@@ -1001,7 +999,7 @@ else if params[0] == "-d" then
 		exit
 	end if
 // Current Version
-else if params[0] == "-v" or params[0] == "--version" then
+else if params[0] == "-v" then
 	exit(program_path.split("/")[-1]+" v" + version_number)
 else
 	ErrorMessage("That command is not recognized!")
