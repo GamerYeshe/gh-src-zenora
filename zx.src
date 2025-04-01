@@ -905,15 +905,16 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 	end if
 end function
 
-ListTree = function(file)
+ListTree = function(file, print_directory=true)
 	if not file then
 		ErrorMessage("Path doesnt exist")
 		wait(2)
 		MainMenu()
 	end if
 	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-	print(permission + COLOUR_BLUE + file.path + "</color>")
-	
+	if print_directory then print(permission + COLOUR_BLUE + file.path + "</color>")
+	folders = {"files": [], "binary": []}
+
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
@@ -921,16 +922,17 @@ ListTree = function(file)
 			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
 
 			if f.is_folder then
-				print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
+				if print_directory then print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
 				list_dir(f)
+			else if f.is_binary then
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
+				outer.folders["binary"].push(f)
 			else
-				if f.is_binary then
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
-				else
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
-				end if
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
+				outer.folders["files"].push(f)
 			end if
 		end for
+	return folders
 	end function
 
 	list_dir(file)
@@ -951,7 +953,7 @@ if params[0] == "-h" or params[0] == "--help" then // Help option - lists shortc
 	InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
 	exit
 // List directory
-else if params[0] == "-l" or params[0] == "--ls" or params[0] == "--list" then // ls shortcut
+else if params[0] == "-l" or params[0] == "-ls" or params[0] == "--list" then // ls shortcut
 	if params.len > 1 then input_path = params[1] else input_path = current_path // If user inputed a path else current path
 	file_path = get_shell.host_computer.File(input_path)
 	// file doesnt exists
