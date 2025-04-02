@@ -860,11 +860,15 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		// Hack File Management
 		else if index == "3" then
 			HackManagementMenu()
-		// Decipher Hash
+		// Bank & Mail Management
 		else if index == "4" then
+			InfoMessage("Still Implementing")
+			wait(1)
+		// Decipher Hash
+		else if index == "5" then
 			DecipherHash()
 		// List Directory Files
-		else if index == "5" then
+		else if index == "6" then
 			location_input = RequestInput("Path Location: ")
 			// If user inputed nothing
 			if not location_input then
@@ -876,17 +880,17 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			ListTree(path_result)
 			ContinueProgram()
 		// NMAP IP Address
-		else if index == "6" then
+		else if index == "7" then
 			nmap_input = RequestInput("Target IP: ")
 			NMAP(nmap_input)
 		// Wifi Cracker
-		else if index == "7" then
+		else if index == "8" then
 			WifiCrack()
 		// R-Shell Interface
-		else if index == "8" then
+		else if index == "9" then
 			ReverseShell()
 		// Clear Logs
-		else if index == "9" then
+		else if index == "10" then
 			LogsMenu()
 		// Exit Program
 		else if index == "0" then
@@ -906,15 +910,16 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 	end if
 end function
 
-ListTree = function(file)
+ListTree = function(file, print_directory=true)
 	if not file then
-		SyntaxMessage("File Doesnt exist")
+		ErrorMessage("Path doesnt exist")
 		wait(2)
 		MainMenu()
 	end if
 	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-	print(permission + COLOUR_BLUE + file.path + "</color>")
-	
+	if print_directory then print(permission + COLOUR_BLUE + file.path + "</color>")
+	folders = {"files": [], "binary": []}
+
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
@@ -922,86 +927,89 @@ ListTree = function(file)
 			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
 
 			if f.is_folder then
-				print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
+				if print_directory then print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
 				list_dir(f)
+			else if f.is_binary then
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
+				outer.folders["binary"].push(f)
 			else
-				if f.is_binary then
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
-				else
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
-				end if
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
+				outer.folders["files"].push(f)
 			end if
 		end for
+	return folders
 	end function
 
 	list_dir(file)
 end function
 
-if params.len > 0 then
-	if params[0] == "-h" then // Help option - lists shortcut commands
-		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
-		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
-		InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
-		InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
-		InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
+if params.len <= 0 then
+	if main_input == null then
+		MainMenu()
+	end if
+	exit
+end if
+// List shortcut commands
+if params[0] == "-h" or params[0] == "--help" then // Help option - lists shortcut commands
+	InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
+	InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
+	InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
+	InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
+	InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
+	exit
+// List directory
+else if params[0] == "-l" or params[0] == "-ls" or params[0] == "--list" then // ls shortcut
+	if params.len > 1 then input_path = params[1] else input_path = current_path // If user inputed a path else current path
+	file_path = get_shell.host_computer.File(input_path)
+	// file doesnt exists
+	if not file_path then
+		ErrorMessage("Path doesnt exists!")
+		SyntaxMessage(program_path.split("/")[-1] + " -l <directory path>") 
 		exit
-	else if params[0] == "-l" then // ls shortcut
-		if params.len > 1 then
-			input_path = get_shell.host_computer.File(params[1])
-			if input_path then
-				if input_path.has_permission("r") then
-					InfoMessage("Showing " + params[1] + " path...")
-					wait(1)
-					ListTree(input_path)
-					ContinueProgram()
-				else
-					ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
-					exit
-				end if
-			else
-				ErrorMessage("You have specified an incorrect path!")
-				SyntaxMessage(program_path.split("/")[-1] + " -l <path location>") 
-				exit
-			end if
-		else
-			current = get_shell.host_computer.File(current_path)
-			InfoMessage("Showing current path...")
-			wait(1)
-			ListTree(current)
-			ContinueProgram()
-		end if
-	else if params[0] == "-n" then // NMAP shortcut
-		if params.len > 1 then
-			if is_valid_ip(params[1]) then
-				shortcut = true
-				NMAP(params[1], shortcut)
-			else
-				ErrorMessage("You have entered an invalid target IP address.")
-				exit
-			end if
-		else
-			ErrorMessage("You have not entered a target IP address.")
-			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
-			exit
-		end if
-	else if params[0] == "-w" then // Wifi Cracking
-		WifiCrack()
-	else if params[0] == "-d" then // Decipher
-		if params.len > 1 then
-			DecipherHash(params[1])
-		else
-			ErrorMessage("You must enter a decipher hash.")
-			SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
-			exit
-		end if
-	else if params[0] == "-v" or params[0] == "--version" then
-		exit(program_path.split("/")[-1]+" v" + version_number)
-	else
-		ErrorMessage("That command is not recognized!")
+	// if inputed path is not a directory
+	else if not file_path.is_folder then
+		SyntaxMessage(program_path.split("/")[-1] + " -l <directory path>") 
 		exit
 	end if
-end if
-
-if main_input == null then
-	MainMenu()
+	if input_path == current_path then
+		 InfoMessage("Showing current path...")
+	else
+		 InfoMessage("Showing " + input_path + " path...")
+	end if
+	wait(1)
+	ListTree(file_path)
+// NMAP shortcut
+else if params[0] == "-n" then
+	if params.len > 1 then
+		if is_valid_ip(params[1]) then
+			shortcut = true
+			NMAP(params[1], shortcut)
+		else
+			ErrorMessage("You have entered an invalid target IP address.")
+			exit
+		end if
+	else
+		ErrorMessage("You have not entered a target IP address.")
+		SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
+		exit
+	end if
+// Wifi Cracking
+else if params[0] == "-w" then 
+	WifiCrack()
+// Decipher
+else if params[0] == "-d" then 
+	if params.len > 1 then
+		DecipherHash(params[1])
+	else
+		ErrorMessage("You must enter a decipher hash.")
+		SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
+		exit
+	end if
+// Current Version
+else if params[0] == "-v" or params[0] == "--version" then
+	exit(program_path.split("/")[-1]+" v" + version_number)
+else
+	ErrorMessage("That command is not recognized!")
+	get_shell.launch(program_path, "-h")
+	exit
 end if
