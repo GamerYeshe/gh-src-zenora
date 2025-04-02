@@ -7,7 +7,7 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - DONE, BUT WORKING ON IT
+// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - IN PROGRESS
 // Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
 
 COLOUR_WHITE = "<color=#ffffff>"
@@ -619,12 +619,14 @@ RetrieveBankMail = function(is_remote)
 	if home_folder then
 		for folder in home_folder.get_folders
 			user_folder = folder.name
-			file = "/home/" + user_folder + "/Config/Mail.txt"
-			result = shell.host_computer.File(file)
-			RetrieveResult(file, result)
-			file =  "/home/" + user_folder + "/Config/Bank.txt"
-			result = shell.host_computer.File(file)
-			RetrieveResult(file, result)
+			if user_folder != "guest" then
+				file = "/home/" + user_folder + "/Config/Bank.txt"
+				result = shell.host_computer.File(file)
+				RetrieveResult(file, result)
+				file =  "/home/" + user_folder + "/Config/Mail.txt"
+				result = shell.host_computer.File(file)
+				RetrieveResult(file, result)
+			end if
 		end for
 	else
 		ErrorMessage("Home folder does not exist!")
