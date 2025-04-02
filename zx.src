@@ -61,7 +61,7 @@ _computer = _shell.host_computer
 // include "metaxploit.so"
 if not pkg.hasIndex("metaxploit") then
 	metaxploit = include_lib("/lib/metaxploit.so")
-	if not metaxploit then metaxploit = include_lib(current_path+"/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
+	if not metaxploit then metaxploit = include_lib(current_path + "/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
 	if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
 else
 	metaxploit = pkg.metaxploit
@@ -410,6 +410,8 @@ ConnectService = function()
 		end if
 	else
 		ErrorMessage("You have entered an invalid service type!")
+		wait(2)
+		MainMenu()
 	end if
 	return remote_shell
 end function
@@ -436,10 +438,10 @@ LogsMenu = function()
 		options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
 		DisplayMenu("Clear Logs Menu", options)
     	index = user_input(get_path)
-		// Local System
+		// Remote Logs
 		if index == "1" then
 			ClearLogs(ConnectService())
-		// Remote System
+		// Local Logs
 		else if index == "2" then
 			ClearLogs(get_shell)
 		// Main Menu
@@ -491,37 +493,88 @@ ClearLogs = function(shell)
 	wait(2)
 end function
 
-RemoteLocalHack = function()
-    ip_input = RequestInput("Target IP: ")
-    if is_valid_ip(ip_input) then
-        port_input = RequestInput("Target Port: ")
-		port_input = port_input.to_int
-        if typeof(port_input) == "number" then
-            opt_input = RequestInput("New Password / LAN IP (Optional): ")
-            if opt_input then
-                globals.opt_var = opt_input
-            else
-                globals.opt_var = null
-            end if
-            ip_addr = ip_input
-            port_num = port_input
-            net_session = metaxploit.net_use(ip_addr, port_num)
-            if not net_session then
-                ErrorMessage("Unable to connect to net session.")
-                wait(2)
-                MainMenu()
-            end if
-            metaLib = net_session.dump_lib
-            BeginHack(metaLib)
-        else
-            ErrorMessage("Please enter a valid number for target port.")
+is_library_file = function(target_input)
+	if target_input.indexOf(".so") != null then
+		shell = get_shell
+		lib_file = shell.host_computer.File("/lib/" + target_input)
+		if not lib_file then
+			lib_file = shell.host_computer.File("/home/" + active_user + "/" + target_input)
+		end if
+		if lib_file then
+			if lib_file.has_permission("r") then
+				return true
+			else
+				ErrorMessage("You are not authorized to access file " + lib_file.path + ". Permission denied.")
+				wait(2)
+			end if
+		else
+			ErrorMessage("This library file does not exist.")
 			wait(2)
-            MainMenu()
+		end if
+	end if
+end function
+
+RemoteLocalHack = function()
+    target_input = RequestInput("IP / Local Library (ex init.so): ")
+    if is_valid_ip(target_input) or is_library_file(target_input) then
+		if is_lan_ip(target_input) or is_library_file(target_input) then
+			lan_input = RequestInput("Target LAN IP (Optional): ")
+			if is_lan_ip(lan_input) then
+				globals.ip_addr = lan_input
+			end if
+			if not is_library_file(target_input) then
+				net_session = metaxploit.net_use(target_input)
+				if not net_session then
+        			ErrorMessage("Unable to connect to net session.")
+            		wait(2)
+            		MainMenu()
+        		end if
+				metaLib = net_session.dump_lib
+			else
+				lib = metaxploit.load("/lib/" + target_input)
+				if not lib then
+					lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+				end if
+				if not lib then
+					ErrorMessage("Unable to initiate library file.")
+					wait(2)
+					MainMenu()
+				end if
+				metaLib = lib
+			end if
+		else
+        	port_input = RequestInput("Target Port: ")
+			port_input = port_input.to_int
+        	if typeof(port_input) == "number" then
+            	opt_input = RequestInput("New Password (Optional): ")
+            	if opt_input then
+                	globals.opt_var = opt_input
+            	else
+                	globals.opt_var = null
+            	end if
+				globals.ip_addr = target_input
+            	globals.port_num = port_input
+            	net_session = metaxploit.net_use(target_input, port_num)
+				if not net_session then
+        			ErrorMessage("Unable to connect to net session.")
+            		wait(2)
+            		MainMenu()
+				end if
+				metaLib = net_session.dump_lib
+			end if
         end if
+        BeginHack(metaLib)
     else
-        ErrorMessage("You have entered an invalid target IP address.")
-        wait(2)
-		MainMenu()
+		if not is_library_file(target_input) then
+        	ErrorMessage("You have entered an unrecognised library file.")
+        	wait(2)
+			MainMenu()
+		end if
+		if not is_valid_ip(target_input) then
+			ErrorMessage("You have entered an invalid IP address.")
+			wait(2)
+			MainMenu()
+		end if
     end if
 end function
 
@@ -548,6 +601,10 @@ UploadHack = function()
 	UploadResult(file, result)
 	file = "/lib/metaxploit.so"
 	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/lib/aptclient.so"
+	result = shell.scp("/lib/aptclient.so", "/lib/", remote_shell)
 	wait(0.2)
 	UploadResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
@@ -589,6 +646,9 @@ RemoveHack = function(is_remote)
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
 	file = "/lib/metaxploit.so"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/aptclient.so"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
@@ -768,6 +828,14 @@ DecipherHash = function(hash)
 	MainMenu()
 end function
 
+// meta = include_lib(path_to_metaxploit.so)
+// if is_lan_ip then it's local, so net_session = meta.net_use(lan_ip) with no port is great // or net_session = meta.net_use(target ip, target port)
+// then we can dump the lib. metaLib = net_session.dump_lib
+// BeginHack = function(metaLib) for example
+// then we can buffer overflow the lib.
+// result = metaLib.overflow(memory address, exploit) for example
+// then we get the result of object types from here
+
 BeginHack = function(mLib)
 	pass = false
 	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
@@ -781,7 +849,11 @@ BeginHack = function(mLib)
 				if pass then continue
 				exploit = str[str.indexOf("<b>")+3:str.indexOf("</b>")]
 				if opt_var == null then
-					result = mLib.overflow(mem_addr, exploit)
+					if is_lan_ip(ip_addr) then
+						result = mLib.overflow(mem_addr, exploit, ip_addr)
+					else
+						result = mLib.overflow(mem_addr, exploit)
+					end if
 				else
 					result = mLib.overflow(mem_addr, exploit, opt_var)
 					if result then
@@ -885,14 +957,12 @@ BeginHack = function(mLib)
 			wait(2)
 		end if
 	end for
-
-	main_input = null
-	ip_addr = null
-	port_num = null
-	metaLib = null
-	comp = get_shell.host_computer.File("/")
-
-	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + "- Version: " + COLOUR_WHITE + mLib.version + "</color>")
+	globals.main_input = null
+	globals.ip_addr = null
+	globals.port_num = null
+	globals.metaLib = null
+	globals.comp = get_shell.host_computer.File("/")
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
 	print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
 	wait(2)
 	ContinueProgram()
@@ -902,7 +972,6 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
 		options  =  ["Remote & Local IP Port Hack"]
-		options.push("Local Library Hack") // enter for example init.so - it must be .so at the end
 		options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
 		options.push("Bank & Mail Management") 
 		options.push("Decipher Hash")
@@ -920,36 +989,16 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		// Remote & Local IP Port Hack
 		if index == "1" then
 			RemoteLocalHack()
-		// Local Library Hack
-		else if index == "2" then
-			lib_name_ = RequestInput("Local Library File (ex: init.so): ", "/lib/")
-			if not lib_name_ then continue // if user hasnt inputed anything continue
-			lib_file = host_comp.File("/lib/" + lib_name_)
-			
-			// if lib_file doesnt exists
-			if not lib_file then
-				ErrorMessage("Library file does not exist.")
-				wait(2)
-				continue
-			end if
-			// if program cannot read Lib_file
-			if not lib_file.has_permission("r") then
-				ErrorMessage("You are unauthorized to access the log file. Permission denied.")
-				wait(2)
-				continue
-			end if
-			metaLib = metaxploit.load("/lib/" + local_input)
-			BeginHack(metaLib)
 		// Hack File Management
-		else if index == "3" then
+		else if index == "2" then
 			HackManagementMenu()
 		// Bank & Mail Management
-		else if index == "4" then
+		else if index == "3" then
 			BankMailManagementMenu()
-		else if index == "5" then
+		else if index == "4" then
 			DecipherHash()
 		// List Directory Files
-		else if index == "6" then
+		else if index == "5" then
 			location_input = RequestInput("Path Location: ")
 			// If user inputed nothing
 			if not location_input then
@@ -961,17 +1010,17 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			ListTree(path_result)
 			ContinueProgram()
 		// NMAP IP Address
-		else if index == "7" then
+		else if index == "6" then
 			nmap_input = RequestInput("Target IP: ")
 			NMAP(nmap_input)
 		// Wifi Cracker
-		else if index == "8" then
+		else if index == "7" then
 			WifiCrack()
 		// R-Shell Interface
-		else if index == "9" then
+		else if index == "8" then
 			ReverseShell()
 		// Clear Logs
-		else if index == "10" then
+		else if index == "9" then
 			LogsMenu()
 		// Exit Program
 		else if index == "0" then
