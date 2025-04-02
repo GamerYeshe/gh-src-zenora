@@ -7,7 +7,8 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - IN PROGRESS
+// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - DONE BUT NEEDS WORK
+// Maybe add user selection to retrieve bank and mail, or all to decipher all users info - IN PROGRESS
 // Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
 
 COLOUR_WHITE = "<color=#ffffff>"
@@ -541,7 +542,7 @@ UploadHack = function()
 	wait(0.2)
 	UploadResult(file, result)
 	ClearLogs(remote_shell)
-	StartTerminal()
+	StartTerminal(remote_shell)
 	ClearLogs(remote_shell)
 	ContinueProgram()
 end function
@@ -581,7 +582,7 @@ RemoveHack = function(is_remote)
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
 	if is_remote then
-		StartTerminal()
+		StartTerminal(shell)
 	end if
 	is_remote = false
 	ClearLogs(shell)
@@ -632,7 +633,7 @@ RetrieveBankMail = function(is_remote)
 		ErrorMessage("Home folder does not exist!")
 	end if
 	if is_remote then
-		StartTerminal()
+		StartTerminal(shell)
 	end if
 	is_remote = false
 	ClearLogs(shell)
