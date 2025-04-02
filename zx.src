@@ -7,9 +7,8 @@
 // Always clear logs
 
 // REMINDER! - Improvement Goals - REMINDER!
-// R SHELL NEEDS IMPLEMENTATION! - IN PROGRESS
-// BANK TOOL TO CORRUPT TRANSACTION.LOG IF POSSIBLE - IN PROGRESS
-// Export Mail or Directory Structure or both into a text file - OPTIONAL
+// Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - IN PROGRESS
+// Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
@@ -41,7 +40,7 @@ RequestInput = function(message, customText="")
     print(COLOUR_WHITE + message + "</color>")
 	path_dir = current_path
     // request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-	request_input = user_input("\" + COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
+	request_input = user_input(COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
 	return request_input
 end function
 
@@ -95,13 +94,13 @@ end function
 StartTerminal = function(shell, bypass_question=false)
 	// bypass the question
 	if not bypass_question then
-		terminal_input = RequestInput("Start terminal? Y/n")
+		terminal_input = RequestInput("Start terminal? y/n")
 	else
 		terminal_input = "y"
 	end if
-
-	if terminal_input.lower != "y" then ContinueProgram()
-	
+	if terminal_input.lower != "y" then
+		ContinueProgram()
+	end if
 	shell.start_terminal
 	exit
 end function
@@ -385,11 +384,12 @@ ConnectService = function()
 	end if
 
 	// Connect Via SSH or FTP
-	remote_shell = get_shell.connect_service(ip_input, PORT_SSH, username_input, pass_input)
+	shell = get_shell
+	remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
 	if typeof(remote_shell) == "string" or remote_shell == null then
 		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
 		wait(2)
-		remote_shell = get_shell.connect_service(ip_input, PORT_FTP, username_input, pass_input)
+		remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
 	end if
 	// Failed to Connect via SSH and FTP
 	if typeof(remote_shell) == "string" or remote_shell == null then
@@ -397,7 +397,6 @@ ConnectService = function()
 		wait(2)
 		MainMenu()
 	end if
-
 	return remote_shell
 end function
 
@@ -420,15 +419,15 @@ end function
 LogsMenu = function() 
 	while true
 		clear_screen
-		options = ["Local System", "Remote System", "Main Menu", {0: "Exit Program"}]
+		options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
 		DisplayMenu("Clear Logs Menu", options)
     	index = user_input(get_path)
 		// Local System
 		if index == "1" then
-			ClearLogs(get_shell)
+			ClearLogs(ConnectService())
 		// Remote System
 		else if index == "2" then
-			ClearLogs(ConnectService())
+			ClearLogs(get_shell)
 		// Main Menu
 		else if index == "3" then
 			MainMenu()
@@ -544,7 +543,7 @@ UploadHack = function()
 	ClearLogs(remote_shell)
 	StartTerminal()
 	ClearLogs(remote_shell)
-	HackManagementMenu()
+	ContinueProgram()
 end function
 
 RemoveResult = function(file, result)
@@ -557,11 +556,18 @@ RemoveResult = function(file, result)
 			ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
 			wait(0.5)
 		end if
+	else
+		ErrorMessage("There was an error removing file " + file + ". Does it exist?")
+		wait(0.5)
 	end if
 end function
 
-RemoveHackLocal = function()
-	shell = get_shell
+RemoveHack = function(is_remote)
+	if is_remote then
+		shell = ConnectService()
+	else
+		shell = get_shell
+	end if
 	file = program_path
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
@@ -574,35 +580,69 @@ RemoveHackLocal = function()
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
+	if is_remote then
+		StartTerminal()
+	end if
+	is_remote = false
 	ClearLogs(shell)
-	HackManagementMenu()
+	ContinueProgram()
 end function
 
-RemoveHackRemote = function()
-	remote_shell = ConnectService()
-	file = program_path
-	result = remote_shell.host_computer.File(file)
-	RemoveResult(file, result)
-	file = "/lib/crypto.so"
-	result = remote_shell.host_computer.File(file)
-	RemoveResult(file, result)
-	file = "/lib/metaxploit.so"
-	result = remote_shell.host_computer.File(file)
-	RemoveResult(file, result)
-	file = "/usr/bin/ScanLan.exe"
-	result = remote_shell.host_computer.File(file)
-	RemoveResult(file, result)
-	StartTerminal()
-	ClearLogs(remote_shell)
-	HackManagementMenu()
+RetrieveResult = function(file, result)
+	if result then
+   		if result.has_permission("r") then
+			InfoMessage("Attempting to decipher file " + file + "...")
+			file_content = result.get_content.split("\n")
+			file_split = file_content[0].split(":")
+			wait(0.5)
+			decipher_pass = GetPassword(file_split)
+			InfoMessage("User - <b>" + file_split[0] + "</b>")
+			InfoMessage("Pass - <b>" + decipher_pass + "</b>")
+			wait(0.5)
+		else
+			ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
+			wait(0.5)
+		end if
+	else
+		ErrorMessage("There was an error retrieving file " + file + ". Does it exist?")
+		wait(0.5)
+	end if
+end function
+
+RetrieveBankMail = function(is_remote)
+	if is_remote then
+		shell = ConnectService()
+	else
+		shell = get_shell
+	end if
+	home_folder = shell.host_computer.File("/home")
+	if home_folder then
+		for folder in home_folder.get_folders
+			user_folder = folder.name
+			file = "/home/" + user_folder + "/Config/Mail.txt"
+			result = shell.host_computer.File(file)
+			RetrieveResult(file, result)
+			file =  "/home/" + user_folder + "/Config/Bank.txt"
+			result = shell.host_computer.File(file)
+			RetrieveResult(file, result)
+		end for
+	else
+		ErrorMessage("Home folder does not exist!")
+	end if
+	if is_remote then
+		StartTerminal()
+	end if
+	is_remote = false
+	ClearLogs(shell)
+	ContinueProgram()
 end function
 
 HackManagementMenu = function()
 	while true
 		clear_screen
-		options = ["Upload Hacks (Remote)"]
+		options = ["Upload Hacks (Remote SSH/FTP - Credentials Required)"]
 		options.push("Remove Hacks (Local)")
-		options.push("Remove Hacks (Remote)")
+		options.push("Remove Hacks (Remote SSH/FTP - Credentials Required)")
 		options.push("Main Menu")
 		options.push({0: "Exit Program"})
 		DisplayMenu("Hack File Management Menu", options)
@@ -614,12 +654,39 @@ HackManagementMenu = function()
 			UploadHack()
 		// Remove Hacks (Local)
 		else if index == "2" then
-			RemoveHackLocal()
-		// Remove Hack (Remote)
+			RemoveHack()
+		// Remove Hacks (Remote)
 		else if index == "3" then
-			RemoveHackRemote()
+			RemoveHack(true)
 		// Main Menu
 		else if index == "4" then
+			MainMenu()
+		// Exit Program
+		else if index== "0" then
+			exit
+		end if
+	end while
+end function
+
+BankMailManagementMenu = function()
+	while true
+		clear_screen
+		options = ["Retrieve Bank & Mail (Remote SSH/FTP - Credentials Required)"]
+		options.push("Retrieve Bank & Mail (Local)")
+		options.push("Main Menu")
+		options.push({0: "Exit Program"})
+		DisplayMenu("Bank & Mail Management Menu", options)
+		
+    	index = user_input(get_path)
+		
+		// Retrieve Information (Remote)
+		if index == "1" then
+			RetrieveBankMail(true)
+		// Retrieve Information (Local)
+		else if index == "2" then
+			RetrieveBankMail()
+		// Main Menu
+		else if index == "3" then
 			MainMenu()
 		// Exit Program
 		else if index== "0" then
@@ -638,8 +705,12 @@ GetPassword = function(userPass)
 	return password
 end function
 
-DecipherHash = function()
-	decipher_hash = RequestInput("Enter Path/Hash: ")
+DecipherHash = function(hash)
+	if hash then
+		decipher_hash = hash
+	else
+		decipher_hash = RequestInput("Enter Path/Hash: ")
+	end if
 	if decipher_hash then
 		file = get_shell.host_computer.File(decipher_hash)
 		if file then
@@ -709,7 +780,7 @@ BeginHack = function(mLib)
 				end if
 				if typeof(result) == "shell" then
 					while true
-						terminal_input = RequestInput("Start terminal? Y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
+						terminal_input = RequestInput("Start terminal? y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
 						if terminal_input.lower == "y" then
 							result.start_terminal
 							ContinueProgram()
@@ -816,13 +887,14 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		clear_screen
 		options  =  ["Remote & Local IP Port Hack"]
 		options.push("Local Library Hack") // enter for example init.so - it must be .so at the end
-		options.push("Hack File Management (User & Password)")
+		options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
+		options.push("Bank & Mail Management") 
 		options.push("Decipher Hash")
 		options.push("List Directory Files")
 		options.push("NMAP IP Address")
 		options.push("Wifi Cracker")
 		options.push("R-Shell Interface")
-		options.push("Clear Logs")
+		options.push("Clear Logs") // clear logs locally or remotely (remote ssh or ftp port required)
 		options.push({0: "Exit Program"})
 		DisplayMenu("Main Menu", options)
 		
@@ -855,11 +927,13 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 		// Hack File Management
 		else if index == "3" then
 			HackManagementMenu()
-		// Decipher Hash
+		// Bank & Mail Management
 		else if index == "4" then
+			BankMailManagementMenu()
+		else if index == "5" then
 			DecipherHash()
 		// List Directory Files
-		else if index == "5" then
+		else if index == "6" then
 			location_input = RequestInput("Path Location: ")
 			// If user inputed nothing
 			if not location_input then
@@ -871,17 +945,17 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 			ListTree(path_result)
 			ContinueProgram()
 		// NMAP IP Address
-		else if index == "6" then
+		else if index == "7" then
 			nmap_input = RequestInput("Target IP: ")
 			NMAP(nmap_input)
 		// Wifi Cracker
-		else if index == "7" then
+		else if index == "8" then
 			WifiCrack()
 		// R-Shell Interface
-		else if index == "8" then
+		else if index == "9" then
 			ReverseShell()
 		// Clear Logs
-		else if index == "9" then
+		else if index == "10" then
 			LogsMenu()
 		// Exit Program
 		else if index == "0" then
@@ -891,7 +965,7 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 end function
 
 ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
-	continue_input = RequestInput("Continue to Main Menu? Y/n")
+	continue_input = RequestInput("Continue to Main Menu? y/n")
 	if continue_input.lower == "y" then
 		MainMenu()
 	else if continue_input.lower == "n" then
@@ -936,9 +1010,9 @@ if params.len > 0 then
 	if params[0] == "-h" then // Help option - lists shortcut commands
 		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
 		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
+		InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
 		InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
-		InfoMessage(program_path.split("/")[-1] + " -d - Decipher option")
-		InfoMessage(program_path.split("/")[-1] + " -v, --version - Get current version")
+		InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
 		exit
 	else if params[0] == "-l" then // ls shortcut
 		if params.len > 1 then
@@ -982,9 +1056,15 @@ if params.len > 0 then
 	else if params[0] == "-w" then // Wifi Cracking
 		WifiCrack()
 	else if params[0] == "-d" then // Decipher
-		DecipherHash()
+		if params.len > 1 then
+			DecipherHash(params[1])
+		else
+			ErrorMessage("You must enter a decipher hash.")
+			SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
+			exit
+		end if
 	else if params[0] == "-v" or params[0] == "--version" then
-		exit(program_path.split("/")[-1]+" "+ version_number)
+		exit(program_path.split("/")[-1]+" v" + version_number)
 	else
 		ErrorMessage("That command is not recognized!")
 		exit
