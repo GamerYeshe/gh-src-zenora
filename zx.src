@@ -383,20 +383,33 @@ ConnectService = function()
 		wait(2)
 		MainMenu()
 	end if
+	// SSH or FTP Service
+	service_input = RequestInput("Service (ssh/ftp):")
 
-	// Connect Via SSH or FTP
-	shell = get_shell
-	remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, "ssh")
-	if typeof(remote_shell) == "string" or remote_shell == null then
-		ErrorMessage("Failed to connect to remote shell via SSH. Trying FTP...")
-		wait(2)
-		remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, "ftp")
-	end if
-	// Failed to Connect via SSH and FTP
-	if typeof(remote_shell) == "string" or remote_shell == null then
-		ErrorMessage("Failed to connect to remote shell via SSH and FTP. Check credentials.")
-		wait(2)
-		MainMenu()
+	// Connect Via SSH
+	if service_input == "ssh" then
+		shell = get_shell
+		remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, service_input)
+		if typeof(remote_shell) == "string" or remote_shell == null then
+			ErrorMessage("Failed to connect to remote shell via SSH.")
+			wait(2)
+		else
+			InfoMessage("Connected successfully via SSH...")
+			wait(0.5)
+		end if
+	// Connect Via FTP
+	else if service_input == "ftp" then
+		shell = get_shell
+		remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, service_input)
+		if typeof(remote_shell) == "string" or remote_shell == null then
+			ErrorMessage("Failed to connect to remote shell via FTP.")
+			wait(2)
+		else
+			InfoMessage("Connected successfully via FTP...")
+			wait(0.5)
+		end if
+	else
+		ErrorMessage("You have entered an invalid service type!")
 	end if
 	return remote_shell
 end function
