@@ -9,1156 +9,1156 @@
 // REMINDER! - Improvement Goals - REMINDER!
 // Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - DONE BUT NEEDS WORK
 // Maybe add user selection to retrieve bank and mail, or all to decipher all users info - IN PROGRESS
-// Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
+urther re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
+COLOUR_WHITE = "<color=#ffffff>"
+COLOUR_BLUE = "<color=#0080ff>"
+COLOUR_GREEN = "<color=#3d7932>"
+COLOUR_ORANGE = "<color=#fd573a>"
+COLOUR_RED = "<color=#ff0000>"
+COLOUR_PURPLE = "<color=#c471dc>"
+COLOUR_YELLOW = "<color=#f1ef31>"
 
-	COLOUR_WHITE = "<color=#ffffff>"
-	COLOUR_BLUE = "<color=#0080ff>"
-	COLOUR_GREEN = "<color=#3d7932>"
-	COLOUR_ORANGE = "<color=#fd573a>"
-	COLOUR_RED = "<color=#ff0000>"
-	COLOUR_PURPLE = "<color=#c471dc>"
-	COLOUR_YELLOW = "<color=#f1ef31>"
-	
-	PORT_FTP = 21
-	PORT_SSH = 22
-	
-	version_number = "2.5"
-	
-	ErrorMessage = function(message, ext=false) // ext == true | exit the program
-		print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
-		if ext then exit()
-	end function
-	
-	InfoMessage = function(message)
-		print(COLOUR_BLUE + "Info: " + COLOUR_WHITE + message + "</color>")
-	end function
-	
-	SyntaxMessage = function(message)
-		print(COLOUR_PURPLE + "Syntax: " + COLOUR_WHITE + message + "</color>")
-	end function
-	
-	RequestInput = function(message, customText="")
-		print(COLOUR_WHITE + message + "</color>")
-		path_dir = current_path
-		// request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		request_input = user_input(COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
-		return request_input
-	end function
-	
-	main_input = null
-	ip_addr = null
-	port_num = null
-	opt_var = null
-	metaLib = null
-	
-	pkg = get_custom_object
-	comp = get_shell.host_computer.File("/")
-	
-	// Import the main shell else get_shell
-	if not pkg.hasIndex("shell") then _shell = get_shell else _shell = pkg.shell // Imports the main shell else get_shell
-	_computer = _shell.host_computer
-	
-	// include "metaxploit.so"
-	if not pkg.hasIndex("metaxploit") then
-		metaxploit = include_lib("/lib/metaxploit.so")
-		if not metaxploit then metaxploit = include_lib(current_path + "/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
-		if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
+PORT_FTP = 21
+PORT_SSH = 22
+
+version_number = "2.5"
+
+ErrorMessage = function(message, ext=false) // ext == true | exit the program
+	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
+	if ext then exit()
+end function
+
+InfoMessage = function(message)
+	print(COLOUR_BLUE + "Info: " + COLOUR_WHITE + message + "</color>")
+end function
+
+SyntaxMessage = function(message)
+	print(COLOUR_PURPLE + "Syntax: " + COLOUR_WHITE + message + "</color>")
+end function
+
+RequestInput = function(message, customText="")
+	print(COLOUR_WHITE + message + "</color>")
+	path_dir = current_path
+	// request_input = user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+	request_input = user_input(COLOUR_WHITE + "=> " + COLOUR_ORANGE + customText) // Experimental
+	return request_input
+end function
+
+main_input = null
+ip_addr = null
+port_num = null
+opt_var = null
+metaLib = null
+
+pkg = get_custom_object
+comp = get_shell.host_computer.File("/")
+
+// Import the main shell else get_shell
+if not pkg.hasIndex("shell") then _shell = get_shell else _shell = pkg.shell // Imports the main shell else get_shell
+_computer = _shell.host_computer
+
+// include "metaxploit.so"
+if not pkg.hasIndex("metaxploit") then
+	metaxploit = include_lib("/lib/metaxploit.so")
+	if not metaxploit then metaxploit = include_lib(current_path + "/metaxploit.so") // include from current directory if "metaxploit.so" not found in /lib
+	if not metaxploit then ErrorMessage("Cannot find metaxploit library in lib or current path folder.", true)
+else
+	metaxploit = pkg.metaxploit
+end if
+
+// include "crypto.so"
+if not pkg.hasIndex("cryptools") then
+	cryptools = include_lib("/lib/crypto.so")
+	if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
+	if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
+else
+	cryptools = pkg.cryptools
+end if
+
+// get the current path for example <user>@<device_name>:/home/user$>
+get_path = function()
+	host_comp = get_shell.host_computer
+	user = active_user
+	// Color user_name depending on privilage
+	if user == "root" then
+		user = COLOUR_RED + user + "</color>"
+	else if user != "guest" then
+		user = COLOUR_BLUE + user + "</color>"
 	else
-		metaxploit = pkg.metaxploit
+		user = "<color=grey>" + user + "</color>"
 	end if
-	
-	// include "crypto.so"
-	if not pkg.hasIndex("cryptools") then
-		cryptools = include_lib("/lib/crypto.so")
-		if not cryptools then cryptools = include_lib(current_path + "/crypto.so") // include from current directory if "crypto.so" not found in /lib
-		if not cryptools then ErrorMessage("Cannot find crypto library in lib or current path folder.", true)
+	// return user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
+	 return user + COLOUR_WHITE + "@" + COLOUR_GREEN + host_comp.get_name + COLOUR_WHITE + ":" + current_path + "$> " + COLOUR_ORANGE // Experimental
+end function
+
+StartTerminal = function(shell, bypass_question=false)
+	// bypass the question
+	if not bypass_question then
+		terminal_input = RequestInput("Start terminal? y/n")
 	else
-		cryptools = pkg.cryptools
+		terminal_input = "y"
 	end if
-	
-	// get the current path for example <user>@<device_name>:/home/user$>
-	get_path = function()
-		host_comp = get_shell.host_computer
-		user = active_user
-		// Color user_name depending on privilage
-		if user == "root" then
-			user = COLOUR_RED + user + "</color>"
-		else if user != "guest" then
-			user = COLOUR_BLUE + user + "</color>"
-		else
-			user = "<color=grey>" + user + "</color>"
+	if terminal_input.lower != "y" then
+		ContinueProgram()
+	end if
+	shell.start_terminal
+	exit
+end function
+
+WifiCrack = function()
+	host_comp = get_shell.host_computer
+	if host_comp.wifi_networks("wlan0")[0] != null then
+		interface = "wlan0"
+	end if
+	if host_comp.wifi_networks("eth0")[0] != null then
+		interface = "eth0"
+	end if
+	devices = host_comp.network_devices.trim.split(" ")
+	print(format_columns("[#] [INTERFACE] [CHIPSET] [MONITOR]\n" + "[0] [" + devices[0] + "] [" + devices[1] + "] [" + devices[2] + "]") + "\n")
+	fh1 = 420000
+	fh2 = 420000
+	networks = []
+	networks = host_comp.wifi_networks(interface)
+	netlen = networks.len
+	bssid = ""
+	essid = ""
+	bss = range(1, netlen)
+	pwr = range(1, netlen)
+	ess = range(1, netlen)
+	ack = range(1, netlen)
+	infonet = range(1, netlen)
+	tack = ""
+	countnet = ""
+	for net in networks
+		acks = ceil(300000/net.split(" ")[1].remove("%").val)
+		if acks < fh2 then
+			essid = net.split(" ")[2]
+			fh2 = acks
 		end if
-		// return user_input(COLOUR_WHITE + path_dir[1:] + "/$" + active_user + "> " + COLOUR_ORANGE)
-		 return user + COLOUR_WHITE + "@" + COLOUR_GREEN + host_comp.get_name + COLOUR_WHITE + ":" + current_path + "$> " + COLOUR_ORANGE // Experimental
-	end function
-	
-	StartTerminal = function(shell, bypass_question=false)
-		// bypass the question
-		if not bypass_question then
-			terminal_input = RequestInput("Start terminal? y/n")
-		else
-			terminal_input = "y"
+	end for
+	for net in networks
+		countnet = networks.indexOf(net)
+		acks = ceil(300000/net.split(" ")[1].remove("%").val)
+		if acks < fh1 then
+			bssid = net.split(" ")[0]
+			fh1 = acks
 		end if
-		if terminal_input.lower != "y" then
-			ContinueProgram()
+		if countnet != netlen then
+			bss[countnet] = net.split(" ")[0]
+			pwr[countnet] = net.split(" ")[1]
+			ess[countnet] = net.split(" ")[2]
+			ack[countnet] = acks
 		end if
-		shell.start_terminal
-		exit
-	end function
-	
-	WifiCrack = function()
-		host_comp = get_shell.host_computer
-		if host_comp.wifi_networks("wlan0")[0] != null then
-			interface = "wlan0"
+		if countnet == 0 then
+			infonet = "[#] [ESSID] [BSSID] [ACKs] [POWER] [STRENGTH]\n"
 		end if
-		if host_comp.wifi_networks("eth0")[0] != null then
-			interface = "eth0"
+		if essid == net.split(" ")[2] then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_RED + "[STRONGEST]</color>\n"
+			tack = acks
+		else if pwr[countnet].remove("%").val >= 63 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_ORANGE + "[STRONG]</color>\n"
+		else if pwr[countnet].remove("%").val >= 42 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_YELLOW + "[MEDIUM]</color>\n"
+		else if pwr[countnet].remove("%").val < 42 then
+			infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_GREEN + "[WEAK]</color>\n"
 		end if
-		devices = host_comp.network_devices.trim.split(" ")
-		print(format_columns("[#] [INTERFACE] [CHIPSET] [MONITOR]\n" + "[0] [" + devices[0] + "] [" + devices[1] + "] [" + devices[2] + "]") + "\n")
-		fh1 = 420000
-		fh2 = 420000
-		networks = []
-		networks = host_comp.wifi_networks(interface)
-		netlen = networks.len
-		bssid = ""
-		essid = ""
-		bss = range(1, netlen)
-		pwr = range(1, netlen)
-		ess = range(1, netlen)
-		ack = range(1, netlen)
-		infonet = range(1, netlen)
-		tack = ""
-		countnet = ""
-		for net in networks
-			acks = ceil(300000/net.split(" ")[1].remove("%").val)
-			if acks < fh2 then
-				essid = net.split(" ")[2]
-				fh2 = acks
-			end if
-		end for
-		for net in networks
-			countnet = networks.indexOf(net)
-			acks = ceil(300000/net.split(" ")[1].remove("%").val)
-			if acks < fh1 then
-				bssid = net.split(" ")[0]
-				fh1 = acks
-			end if
-			if countnet != netlen then
-				bss[countnet] = net.split(" ")[0]
-				pwr[countnet] = net.split(" ")[1]
-				ess[countnet] = net.split(" ")[2]
-				ack[countnet] = acks
-			end if
-			if countnet == 0 then
-				infonet = "[#] [ESSID] [BSSID] [ACKs] [POWER] [STRENGTH]\n"
-			end if
-			if essid == net.split(" ")[2] then
-				infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_RED + "[STRONGEST]</color>\n"
-				tack = acks
-			else if pwr[countnet].remove("%").val >= 63 then
-				infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_ORANGE + "[STRONG]</color>\n"
-			else if pwr[countnet].remove("%").val >= 42 then
-				infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_YELLOW + "[MEDIUM]</color>\n"
-			else if pwr[countnet].remove("%").val < 42 then
-				infonet = infonet + countnet + ") [" + net.split(" ")[2] + "] [" + net.split(" ")[0] + "] [" + acks + "] [" + net.split(" ")[1] + "] " + COLOUR_GREEN + "[WEAK]</color>\n"
-			end if
-			if acks != tack then
-				acks = tack
-			end if
-		end for
-		print(format_columns(infonet))
-		cap = host_comp.File(current_path+"/file.cap")
-		if cap then
-			cap.delete
+		if acks != tack then
+			acks = tack
 		end if
-		cryptools.airmon("start", interface)
-		print(COLOUR_YELLOW + "<b>-- Monitoring started --</b></color>")
-		check = false
-		while(check == false)
-			selectnet = RequestInput("Enter a connection number to crack the wifi password: ").to_int
-			if selectnet then
-				if typeof(selectnet) == "number" and selectnet >= 0 and selectnet <= netlen then
-					InfoMessage("You have selected <b>" + ess[selectnet] + "</b> network.</color>")
-					InfoMessage("Target value of ACKs: [" + ack[selectnet] + "]</color>")
-					if ack[selectnet] <= 7000 then
-						InfoMessage("Estimated time: 1-2 minutes...</color>")
-					else
-						InfoMessage("Estimated time: 5-10 minutes... Could be longer...</color>")
-					end if
-					check = true
+	end for
+	print(format_columns(infonet))
+	cap = host_comp.File(current_path+"/file.cap")
+	if cap then
+		cap.delete
+	end if
+	cryptools.airmon("start", interface)
+	print(COLOUR_YELLOW + "<b>-- Monitoring started --</b></color>")
+	check = false
+	while(check == false)
+		selectnet = RequestInput("Enter a connection number to crack the wifi password: ").to_int
+		if selectnet then
+			if typeof(selectnet) == "number" and selectnet >= 0 and selectnet <= netlen then
+				InfoMessage("You have selected <b>" + ess[selectnet] + "</b> network.</color>")
+				InfoMessage("Target value of ACKs: [" + ack[selectnet] + "]</color>")
+				if ack[selectnet] <= 7000 then
+					InfoMessage("Estimated time: 1-2 minutes...</color>")
 				else
-					ErrorMessage("You have entered an invalid number.")
-					check = false
-					wait(2)
-					MainMenu()
+					InfoMessage("Estimated time: 5-10 minutes... Could be longer...</color>")
 				end if
+				check = true
 			else
-				ErrorMessage("You must enter a valid number.")
+				ErrorMessage("You have entered an invalid number.")
+				check = false
 				wait(2)
 				MainMenu()
 			end if
-		end while
-		print(COLOUR_YELLOW + "<b>-- Aireplay started --</b></color>")
-		r1 = cryptools.aireplay(bss[selectnet], ess[selectnet], ack[selectnet])
+		else
+			ErrorMessage("You must enter a valid number.")
+			wait(2)
+			MainMenu()
+		end if
+	end while
+	print(COLOUR_YELLOW + "<b>-- Aireplay started --</b></color>")
+	r1 = cryptools.aireplay(bss[selectnet], ess[selectnet], ack[selectnet])
+	wait(2)
+	if typeof(r1) == "string" then
+		ErrorMessage("Variable r1 returned string! An issue has occured.")
 		wait(2)
-		if typeof(r1) == "string" then
-			ErrorMessage("Variable r1 returned string! An issue has occured.")
-			wait(2)
+		MainMenu()
+	end if
+	pass = cryptools.aircrack(current_path+"/file.cap")
+	if pass == "" then
+		ErrorMessage("Variable pass has returned null in file.cap!")
+		wait(2)
+		MainMenu()
+	end if
+	print(COLOUR_YELLOW + "<b>-- Aircrack started --</b></color>")
+	cap = host_comp.File(current_path+"/file.cap")
+	if cap then
+	cap.delete
+	end if
+	InfoMessage("Monitoring has stopped...")
+	cryptools.airmon("stop", interface)
+	check = false
+	while(check == false)
+		quest = RequestInput("Do you want to connect to the network? Y/n")
+		if quest.lower == "y" then
+			host_comp.connect_wifi(interface, bss[selectnet], ess[selectnet], pass)
+			InfoMessage("You are now connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
+			check = true
+		else if quest.lower == "n" then
+			InfoMessage("You are not connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
+			check = true
+		else
+			check = false
+			continue
+		end if
+		ContinueProgram()
+	end while
+end function
+
+NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
+	if not get_shell.host_computer.is_network_active then
+		if shortcut then
+			exit(ErrorMessage("No connection to the internet."))
+		else
 			MainMenu()
 		end if
-		pass = cryptools.aircrack(current_path+"/file.cap")
-		if pass == "" then
-			ErrorMessage("Variable pass has returned null in file.cap!")
-			wait(2)
-			MainMenu()
+	end if
+	router = null
+	ports = null
+	if is_valid_ip(target_ip) then
+		is_lan = is_lan_ip(target_ip)
+		if is_lan then
+			router = get_router
+			ports = router.device_ports(target_ip)
+		else
+			router = get_router(target_ip)
+			ports = router.used_ports
 		end if
-		print(COLOUR_YELLOW + "<b>-- Aircrack started --</b></color>")
-		cap = host_comp.File(current_path+"/file.cap")
-		if cap then
-		cap.delete
-		end if
-		InfoMessage("Monitoring has stopped...")
-		cryptools.airmon("stop", interface)
-		check = false
-		while(check == false)
-			quest = RequestInput("Do you want to connect to the network? Y/n")
-			if quest.lower == "y" then
-				host_comp.connect_wifi(interface, bss[selectnet], ess[selectnet], pass)
-				InfoMessage("You are now connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
-				check = true
-			else if quest.lower == "n" then
-				InfoMessage("You are not connected to the network! (Name: <b>" + COLOUR_RED + ess[selectnet] + "</b></color> - Password: <b>" + COLOUR_RED + pass + "</b></color>)")
-				check = true
-			else
-				check = false
-				continue
-			end if
-			ContinueProgram()
-		end while
-	end function
-	
-	NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
-		if not get_shell.host_computer.is_network_active then
+		if router == null then
 			if shortcut then
-				exit(ErrorMessage("No connection to the internet."))
+				exit(ErrorMessage("Target IP address not found. Null router."))
 			else
 				MainMenu()
 			end if
 		end if
-		router = null
-		ports = null
-		if is_valid_ip(target_ip) then
-			is_lan = is_lan_ip(target_ip)
-			if is_lan then
-				router = get_router
-				ports = router.device_ports(target_ip)
+		if typeof(ports) == "string" then
+			if shortcut then
+				exit(ErrorMessage("An error occured with port return: [" + ports + "]"))
 			else
-				router = get_router(target_ip)
-				ports = router.used_ports
+				MainMenu()
 			end if
-			if router == null then
-				if shortcut then
-					exit(ErrorMessage("Target IP address not found. Null router."))
-				else
-					MainMenu()
-				end if
-			end if
-			if typeof(ports) == "string" then
-				if shortcut then
-					exit(ErrorMessage("An error occured with port return: [" + ports + "]"))
-				else
-					MainMenu()
-				end if
-			end if
-			if ports then
-				info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN"
-				print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
-				InfoMessage("ESSID: <b>" + COLOUR_WHITE + router.essid_name + "</color></b>")
-				InfoMessage("BSSID: <b>" + COLOUR_WHITE + router.bssid_name + "</color></b>")
-				InfoMessage("Version: <b>v" + COLOUR_WHITE + router.kernel_version() + "</color></b>")
-				firewall = router.firewall_rules
-				if firewall == [] or firewall == null then
-					InfoMessage("Firewall - <b>" + COLOUR_GREEN + "ALLOWED</b></color>")
-				else
-					InfoMessage("Firewall - <b>" + COLOUR_RED + "DENIED</b></color>")
-					for rule in firewall
-						print(COLOUR_RED + rule + "</color>")
-					end for
-				end if
-				InfoMessage("Interesting ports on " + COLOUR_WHITE + "<b>" + target_ip + "</b></color>\n")
-				if ports.len == 0 then
-					InfoMessage("No open ports...")
-					print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
-					ContinueProgram()
-				end if
-				ports = []
-				for lan in router.devices_lan_ip
-					ports = ports + router.device_ports(lan)
-				end for
-				for port in ports
-					   service_info = router.port_info(port)
-					   lan_ips = port.get_lan_ip
-					   port_status = "open"
-					   if(port.is_closed and not is_lan) then
-						  port_status = "closed"
-					   end if
-					   info = info + "\n" + COLOUR_WHITE + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
-				end for
-				print(format_columns(info) + "\n")
-				print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
-				ContinueProgram()
+		end if
+		if ports then
+			info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN"
+			print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
+			InfoMessage("ESSID: <b>" + COLOUR_WHITE + router.essid_name + "</color></b>")
+			InfoMessage("BSSID: <b>" + COLOUR_WHITE + router.bssid_name + "</color></b>")
+			InfoMessage("Version: <b>v" + COLOUR_WHITE + router.kernel_version() + "</color></b>")
+			firewall = router.firewall_rules
+			if firewall == [] or firewall == null then
+				InfoMessage("Firewall - <b>" + COLOUR_GREEN + "ALLOWED</b></color>")
 			else
-				print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
+				InfoMessage("Firewall - <b>" + COLOUR_RED + "DENIED</b></color>")
+				for rule in firewall
+					print(COLOUR_RED + rule + "</color>")
+				end for
+			end if
+			InfoMessage("Interesting ports on " + COLOUR_WHITE + "<b>" + target_ip + "</b></color>\n")
+			if ports.len == 0 then
 				InfoMessage("No open ports...")
 				print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
 				ContinueProgram()
 			end if
-		end if
-	end function
-	
-	ReverseShell = function()
-		clear_screen
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "R-Shell Interface" + COLOUR_WHITE + " #--]</b></color>") // Title of the function
-		
-		// Get shell computer info
-		get_shell_info = function(shell)
-			computer = shell.host_computer
-			return [computer.get_name, computer.public_ip, computer.local_ip, computer.active_net_card].join(" ")
-		end function
-	
-		shells = metaxploit.rshell_server
-		// if "shells" returned a unknown data type
-		if typeof(shells) != "list" then
-			ErrorMessage("Rshell server gave a unknown response! [" + shells + "]")
-			wait(2)
-			MainMenu()
-		// If server has no incoming connections
-		else if shells.len <= 0 or shells == null then
-			ErrorMessage("Rshell server has no connections!")
-			wait(2)
-			MainMenu()
-		end if
-		// List incoming connections!
-		info = COLOUR_PURPLE+"[#] [Device_Name] [Public_IP] [Local_Ip] [Connected_by]</color>\n"
-		for index in range(1, shells.len)
-			info = info + COLOUR_WHITE + index + ") " + get_shell_info(shells[index-1]) + "</color>\n"
-		end for
-		print(format_columns(info))
-		print("")
-		index = RequestInput("Index (0: Main Menu): ").val
-		if index == 0 then MainMenu() // Return to MainMenu if user inputed 0 or if method .val got a string
-		// check if index is not greater than shells.len
-		if 1 > index or index > shells.len then 
-			SyntaxMessage("Input Index between 0-"+shells.len)
-			wait(2)
-			ReverseShell()
-		end if
-		StartTerminal(shells[index-1], true)
-		ContinueProgram()
-	end function
-	
-	// Returns a FTP or SSH shell else go back to MainMenu
-	ConnectService = function()
-		// Target IP
-		ip_input = RequestInput("Target IP: ")
-		if not is_valid_ip(ip_input) then
-			ErrorMessage("You have entered an invalid target IP address.")
-			wait(2)
-			MainMenu()
-		end if
-		// Target Username
-		username_input = RequestInput("Target Username: ")
-		if not username_input then
-			ErrorMessage("You have not entered a target username.")
-			wait(2)
-			MainMenu()
-		end if
-		// Target Password
-		pass_input = RequestInput("Target Password: ")
-		if not pass_input then
-			ErrorMessage("You have not entered a target user password.")
-			wait(2)
-			MainMenu()
-		end if
-		// SSH or FTP Service
-		service_input = RequestInput("Service (ssh/ftp):")
-	
-		// Connect Via SSH
-		if service_input == "ssh" then
-			shell = get_shell
-			remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, service_input)
-			if typeof(remote_shell) == "string" or remote_shell == null then
-				ErrorMessage("Failed to connect to remote shell via SSH.")
-				wait(2)
-			else
-				InfoMessage("Connected successfully via SSH...")
-				wait(0.5)
-			end if
-		// Connect Via FTP
-		else if service_input == "ftp" then
-			shell = get_shell
-			remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, service_input)
-			if typeof(remote_shell) == "string" or remote_shell == null then
-				ErrorMessage("Failed to connect to remote shell via FTP.")
-				wait(2)
-			else
-				InfoMessage("Connected successfully via FTP...")
-				wait(0.5)
-			end if
+			ports = []
+			for lan in router.devices_lan_ip
+				ports = ports + router.device_ports(lan)
+			end for
+			for port in ports
+				   service_info = router.port_info(port)
+				   lan_ips = port.get_lan_ip
+				   port_status = "open"
+				   if(port.is_closed and not is_lan) then
+					  port_status = "closed"
+				   end if
+				   info = info + "\n" + COLOUR_WHITE + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
+			end for
+			print(format_columns(info) + "\n")
+			print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
+			ContinueProgram()
 		else
-			ErrorMessage("You have entered an invalid service type!")
-			wait(2)
-			MainMenu()
+			print(COLOUR_YELLOW + "<b>-- NMAP started --</b></color>")
+			InfoMessage("No open ports...")
+			print(COLOUR_YELLOW + "<b>-- NMAP finished --</b></color>")
+			ContinueProgram()
 		end if
-		return remote_shell
-	end function
+	end if
+end function
+
+ReverseShell = function()
+	clear_screen
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "R-Shell Interface" + COLOUR_WHITE + " #--]</b></color>") // Title of the function
 	
-	DisplayMenu = function(title, options)
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + title + COLOUR_WHITE + " #--]</b></color>") // Title of the Menu
-		// Print Options
-		for index in range(1, options.len)
-			option = options[index-1]
-			if option isa map then
-				index = option.indexes[0]
-				option = option[index]
-			end if
-			print(COLOUR_WHITE + index +") " + COLOUR_ORANGE + option + "</color>")
-		end for
-		
-		print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>\n") // Tool name with version
+	// Get shell computer info
+	get_shell_info = function(shell)
+		computer = shell.host_computer
+		return [computer.get_name, computer.public_ip, computer.local_ip, computer.active_net_card].join(" ")
 	end function
-	
-	// LOG CLEARING MENU
-	LogsMenu = function() 
-		while true
-			clear_screen
-			options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
-			DisplayMenu("Clear Logs Menu", options)
-			index = user_input(get_path)
-			// Remote Logs
-			if index == "1" then
-				ClearLogs(ConnectService())
-			// Local Logs
-			else if index == "2" then
-				ClearLogs(get_shell)
-			// Main Menu
-			else if index == "3" then
-				MainMenu()
-			// Exit Program
-			else if index == "0" then
-				exit
-			end if
-		end while
-	end function
-	
-	ClearLogs = function(shell)
-		if typeof(shell) == "computer" then computer = shell else computer = shell.host_computer // if shell by chance is a host_computer
-		log_file = computer.File("/var/system.log")
-		// if log_file doesnt exists
-		if not log_file then
-			ErrorMessage("Log file does not exist at /var/system.log!")
-			wait(2)
-			return
-		end if
-		// Check permission on log_file if can read else return
-		if not log_file.has_permission("r") then
-			ErrorMessage("You are unauthorized to access the log file. Permission denied.")
-			wait(2)
-			return
-		end if
-		// Create new "system.log" file on /root
-		create_log = computer.touch("/root", "system.log")
-		if typeof(create_log) == "string" then
-			ErrorMessage("Log file creation is unsuccessful! [" + create_log + "]")
-			wait(2)
-		end if
-		// Try to move new_log file to /var
-		new_log = computer.File("/root/system.log")
-		move_log = new_log.move("/var", "system.log")
-		if typeof(move_log) == "string" then // if true try delete new_log
-			ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
-			wait(2)
-			move_log = new_log.delete
-			if typeof(move_log) == "string" then
-				ErrorMessage("Unable to remove created system.log file! [" + move_log + "]")
-				wait(2)
-			end if
-		end if
-		InfoMessage("Log file has been cleared successfully.")
+
+	shells = metaxploit.rshell_server
+	// if "shells" returned a unknown data type
+	if typeof(shells) != "list" then
+		ErrorMessage("Rshell server gave a unknown response! [" + shells + "]")
 		wait(2)
-	end function
-	
-	is_library_file = function(target_input)
-		if target_input.indexOf(".so") != null then
-			shell = get_shell
-			lib_file = shell.host_computer.File("/lib/" + target_input)
-			if not lib_file then
-				lib_file = shell.host_computer.File("/home/" + active_user + "/" + target_input)
-			end if
-			if lib_file then
-				if lib_file.has_permission("r") then
-					return true
-				else
-					ErrorMessage("You are not authorized to access file " + lib_file.path + ". Permission denied.")
-					wait(2)
-				end if
-			else
-				ErrorMessage("This library file does not exist.")
-				wait(2)
-			end if
-		end if
-	end function
-	
-	RemoteLocalHack = function()
-		target_input = RequestInput("IP / Local Library (ex init.so): ")
-		if is_valid_ip(target_input) or is_library_file(target_input) then
-			if is_lan_ip(target_input) or is_library_file(target_input) then
-				lan_input = RequestInput("Target LAN IP (Optional): ")
-				if is_lan_ip(lan_input) then
-					globals.ip_addr = lan_input
-				end if
-				if not is_library_file(target_input) then
-					net_session = metaxploit.net_use(target_input)
-					if not net_session then
-						ErrorMessage("Unable to connect to net session.")
-						wait(2)
-						MainMenu()
-					end if
-					metaLib = net_session.dump_lib
-				else
-					lib = metaxploit.load("/lib/" + target_input)
-					if not lib then
-						lib = metaxploit.load("/home/" + active_user + "/" + target_input)
-					end if
-					if not lib then
-						ErrorMessage("Unable to initiate library file.")
-						wait(2)
-						MainMenu()
-					end if
-					metaLib = lib
-				end if
-			else
-				port_input = RequestInput("Target Port: ")
-				port_input = port_input.to_int
-				if typeof(port_input) == "number" then
-					opt_input = RequestInput("New Password (Optional): ")
-					if opt_input then
-						globals.opt_var = opt_input
-					else
-						globals.opt_var = null
-					end if
-					globals.ip_addr = target_input
-					globals.port_num = port_input
-					net_session = metaxploit.net_use(target_input, port_num)
-					if not net_session then
-						ErrorMessage("Unable to connect to net session.")
-						wait(2)
-						MainMenu()
-					end if
-					metaLib = net_session.dump_lib
-				end if
-			end if
-			BeginHack(metaLib)
-		else
-			if not is_library_file(target_input) then
-				ErrorMessage("You have entered an unrecognised library file.")
-				wait(2)
-				MainMenu()
-			end if
-			if not is_valid_ip(target_input) then
-				ErrorMessage("You have entered an invalid IP address.")
-				wait(2)
-				MainMenu()
-			end if
-		end if
-	end function
-	
-	UploadResult = function(file, result)
-		if typeof(result) == "string" then
-			   ErrorMessage("There was an issue uploading the file " + file + " [" + result + "]")
-			wait(0.5)
-		else
-			InfoMessage("File " + file + " has been uploaded successfully.")
-			wait(0.5)
-		end if
-	end function
-	
-	UploadHack = function()
-		shell = get_shell
-		remote_shell = ConnectService()
-		file = program_path
-		result = shell.scp(program_path, "/bin/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/lib/crypto.so"
-		result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/lib/metaxploit.so"
-		result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		file = "/usr/bin/ScanLan.exe"
-		result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
-		wait(0.2)
-		UploadResult(file, result)
-		ClearLogs(remote_shell)
-		StartTerminal(remote_shell)
-		ContinueProgram()
-	end function
-	
-	RemoveResult = function(file, result)
-		if result then
-			   if result.has_permission("r") then
-				result.delete
-				InfoMessage("File " + file + " has been removed successfully.")
-				wait(0.5)
-			else
-				ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
-				wait(0.5)
-			end if
-		else
-			ErrorMessage("There was an error removing file " + file + ". Does it exist?")
-			wait(0.5)
-		end if
-	end function
-	
-	RemoveHack = function(is_remote)
-		if is_remote then
-			shell = ConnectService()
-		else
-			shell = get_shell
-		end if
-		file = program_path
-		result = shell.host_computer.File(file)
-		RemoveResult(file, result)
-		file = "/lib/crypto.so"
-		result = shell.host_computer.File(file)
-		RemoveResult(file, result)
-		file = "/lib/metaxploit.so"
-		result = shell.host_computer.File(file)
-		RemoveResult(file, result)
-		file = "/usr/bin/ScanLan.exe"
-		result = shell.host_computer.File(file)
-		RemoveResult(file, result)
-		ClearLogs(shell)
-		if is_remote then
-			StartTerminal(shell)
-		end if
-		is_remote = false
-		ContinueProgram()
-	end function
-	
-	RetrieveResult = function(file, result)
-		if result then
-			   if result.has_permission("r") then
-				InfoMessage("Attempting to decipher file " + file + "...")
-				file_content = result.get_content.split("\n")
-				file_split = file_content[0].split(":")
-				wait(0.5)
-				decipher_pass = GetPassword(file_split)
-				InfoMessage("User - <b>" + file_split[0] + "</b>")
-				InfoMessage("Pass - <b>" + decipher_pass + "</b>")
-				wait(0.5)
-			else
-				ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
-				wait(0.5)
-			end if
-		else
-			ErrorMessage("There was an error retrieving file " + file + ". Does it exist?")
-			wait(0.5)
-		end if
-	end function
-	
-	RetrieveBankMail = function(is_remote)
-		if is_remote then
-			shell = ConnectService()
-		else
-			shell = get_shell
-		end if
-		home_folder = shell.host_computer.File("/home")
-		if home_folder then
-			for folder in home_folder.get_folders
-				user_folder = folder.name
-				if user_folder != "guest" then
-					file = "/home/" + user_folder + "/Config/Bank.txt"
-					result = shell.host_computer.File(file)
-					RetrieveResult(file, result)
-					file =  "/home/" + user_folder + "/Config/Mail.txt"
-					result = shell.host_computer.File(file)
-					RetrieveResult(file, result)
-				end if
-			end for
-		else
-			ErrorMessage("Home folder does not exist!")
-		end if
-		ClearLogs(shell)
-		if is_remote then
-			StartTerminal(shell)
-		end if
-		is_remote = false
-		ContinueProgram()
-	end function
-	
-	HackManagementMenu = function()
-		while true
-			clear_screen
-			options = ["Upload Hacks (Remote SSH/FTP - Credentials Required)"]
-			options.push("Remove Hacks (Local)")
-			options.push("Remove Hacks (Remote SSH/FTP - Credentials Required)")
-			options.push("Main Menu")
-			options.push({0: "Exit Program"})
-			DisplayMenu("Hack File Management Menu", options)
-			
-			index = user_input(get_path)
-			
-			// Upload Hacks (Remote)
-			if index == "1" then
-				UploadHack()
-			// Remove Hacks (Local)
-			else if index == "2" then
-				RemoveHack()
-			// Remove Hacks (Remote)
-			else if index == "3" then
-				RemoveHack(true)
-			// Main Menu
-			else if index == "4" then
-				MainMenu()
-			// Exit Program
-			else if index== "0" then
-				exit
-			end if
-		end while
-	end function
-	
-	BankMailManagementMenu = function()
-		while true
-			clear_screen
-			options = ["Retrieve Bank & Mail (Remote SSH/FTP - Credentials Required)"]
-			options.push("Retrieve Bank & Mail (Local)")
-			options.push("Main Menu")
-			options.push({0: "Exit Program"})
-			DisplayMenu("Bank & Mail Management Menu", options)
-			
-			index = user_input(get_path)
-			
-			// Retrieve Information (Remote)
-			if index == "1" then
-				RetrieveBankMail(true)
-			// Retrieve Information (Local)
-			else if index == "2" then
-				RetrieveBankMail()
-			// Main Menu
-			else if index == "3" then
-				MainMenu()
-			// Exit Program
-			else if index== "0" then
-				exit
-			end if
-		end while
-	end function
-	
-	GetPassword = function(userPass)
-		if userPass.len != 2 then
-			ErrorMessage("Decipher failed. Wrong syntax!")
-			wait(2)
-			MainMenu()
-		end if
-		password = cryptools.decipher(userPass[1])
-		return password
-	end function
-	
-	DecipherHash = function(hash)
-		if hash then
-			decipher_hash = hash
-		else
-			decipher_hash = RequestInput("Enter Path/Hash: ")
-		end if
-		if decipher_hash then
-			file = get_shell.host_computer.File(decipher_hash)
-			if file then
-				if not file.has_permission("r") then
-					ErrorMessage("You are not unauthorized to access file <b>" + decipher_hash + "</b>. Permission denied.")
-					wait(2)
-				end if
-				if file.is_binary then
-					ErrorMessage("Unable to read <b>" + decipher_hash + "</b> binary file.")
-					wait(2)
-				end if
-				if file.get_content.len == 0 then
-					ErrorMessage("File <b>" + decipher_hash + "</b> is empty.")
-					wait(2)
-				end if
-				lines = file.get_content.split("\n")
-			else if decipher_hash.len > 33 then
-				lines = [decipher_hash]
-			else
-				ErrorMessage("Cannot find decipher input: <b>" + decipher_hash + "</b>")
-				wait(2)
-			end if
-			for line in lines
-				userPass = line.split(":")
-				password = GetPassword(userPass)
-				if not password then
-					ErrorMessage("Password not found.")
-					wait(2)
-				else
-					print(password)
-					wait(2)
-					ContinueProgram()
-				end if
-			end for
-		else
-			ErrorMessage("You must enter a decipher file or hash in pass format!")
-			wait(2)
-		end if
 		MainMenu()
-	end function
-	
-	// meta = include_lib(path_to_metaxploit.so)
-	// if is_lan_ip then it's local, so net_session = meta.net_use(lan_ip) with no port is great // or net_session = meta.net_use(target ip, target port)
-	// then we can dump the lib. metaLib = net_session.dump_lib
-	// BeginHack = function(metaLib) for example
-	// then we can buffer overflow the lib.
-	// result = metaLib.overflow(memory address, exploit) for example
-	// then we get the result of object types from here
-	
-	BeginHack = function(mLib)
-		pass = false
-		save_dir = current_path + "/zenora_data/"  // Saves to YOUR current directory
-		creds_file = "exploit_creds.txt"
-		scripts_dir = current_path + "/zenora_scripts/"
-	
-		print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
-		memories = metaxploit.scan(mLib)
-	
-		// Create local directories (on YOUR PC)
-		computer = get_shell.host_computer
-		if not computer.File(save_dir) then computer.create_folder(current_path, "zenora_data")
-		if not computer.File(scripts_dir) then computer.create_folder(current_path, "zenora_scripts")
-	
-		// Initialize credentials file (local)
-		full_creds_path = save_dir + creds_file
-		creds = computer.File(full_creds_path)
-		if not creds then
-			computer.touch(save_dir, creds_file)
-			creds = computer.File(full_creds_path)
-			if not creds then
-				ErrorMessage("Failed to create credentials file locally!")
-				return
-			end if
-		end if
-	
-		for mem_addr in memories
-			vuln_strings = metaxploit.scan_address(mLib, mem_addr)
-			if not vuln_strings then continue
-	
-			vuln_split = vuln_strings.split("Unsafe check: ")
-			for str in vuln_split
-				if str == vuln_split[0] then continue
-				if pass then continue
-				
-				exploit = str[str.indexOf("<b>")+3 : str.indexOf("</b>")]
-				if not exploit then continue
-	
-				// Execute exploit
-				result = null
-				if opt_var then
-					result = mLib.overflow(mem_addr, exploit, opt_var)
-				else if is_lan_ip(ip_addr) then
-					result = mLib.overflow(mem_addr, exploit, ip_addr)
-				else
-					result = mLib.overflow(mem_addr, exploit)
-				end if
-	
-				if not result then
-					ErrorMessage("Exploit failed on " + mem_addr)
-					continue
-				end if
-	
-				// ====== KEY FIX: Handle shell properly ======
-				if typeof(result) == "shell" then
-					// Save exploit details LOCALLY
-					HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
-					
-					// Prompt user for next action
-					print("\n" + COLOUR_GREEN + "<b>SUCCESS! Gained shell access.</b></color>")
-					print(COLOUR_WHITE + "1) Start terminal now")
-					print("2) Save & return to main menu")
-					print("3) Exit program</color>")
-					
-					choice = RequestInput("Choose action (1-3): ")
-					if choice == "1" then
-						result.start_terminal
-						exit
-					else if choice == "2" then
-						MainMenu()
-					else
-						exit
-					end if
-				else
-					// Non-shell result (error, etc.)
-					HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
-					wait(2)
-				end if
-			end for
-		end for
-	
-		print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
-		
-		// Let user decide what to do next
-		print("\n" + COLOUR_WHITE + "1) Return to main menu")
-		print("2) Exit program</color>")
-		choice = RequestInput("Choose action (1-2): ")
-		if choice == "1" then
-			MainMenu()
+	// If server has no incoming connections
+	else if shells.len <= 0 or shells == null then
+		ErrorMessage("Rshell server has no connections!")
+		wait(2)
+		MainMenu()
+	end if
+	// List incoming connections!
+	info = COLOUR_PURPLE+"[#] [Device_Name] [Public_IP] [Local_Ip] [Connected_by]</color>\n"
+	for index in range(1, shells.len)
+		info = info + COLOUR_WHITE + index + ") " + get_shell_info(shells[index-1]) + "</color>\n"
+	end for
+	print(format_columns(info))
+	print("")
+	index = RequestInput("Index (0: Main Menu): ").val
+	if index == 0 then MainMenu() // Return to MainMenu if user inputed 0 or if method .val got a string
+	// check if index is not greater than shells.len
+	if 1 > index or index > shells.len then 
+		SyntaxMessage("Input Index between 0-"+shells.len)
+		wait(2)
+		ReverseShell()
+	end if
+	StartTerminal(shells[index-1], true)
+	ContinueProgram()
+end function
+
+// Returns a FTP or SSH shell else go back to MainMenu
+ConnectService = function()
+	// Target IP
+	ip_input = RequestInput("Target IP: ")
+	if not is_valid_ip(ip_input) then
+		ErrorMessage("You have entered an invalid target IP address.")
+		wait(2)
+		MainMenu()
+	end if
+	// Target Username
+	username_input = RequestInput("Target Username: ")
+	if not username_input then
+		ErrorMessage("You have not entered a target username.")
+		wait(2)
+		MainMenu()
+	end if
+	// Target Password
+	pass_input = RequestInput("Target Password: ")
+	if not pass_input then
+		ErrorMessage("You have not entered a target user password.")
+		wait(2)
+		MainMenu()
+	end if
+	// SSH or FTP Service
+	service_input = RequestInput("Service (ssh/ftp):")
+
+	// Connect Via SSH
+	if service_input == "ssh" then
+		shell = get_shell
+		remote_shell = shell.connect_service(ip_input, PORT_SSH, username_input, pass_input, service_input)
+		if typeof(remote_shell) == "string" or remote_shell == null then
+			ErrorMessage("Failed to connect to remote shell via SSH.")
+			wait(2)
 		else
+			InfoMessage("Connected successfully via SSH...")
+			wait(0.5)
+		end if
+	// Connect Via FTP
+	else if service_input == "ftp" then
+		shell = get_shell
+		remote_shell = shell.connect_service(ip_input, PORT_FTP, username_input, pass_input, service_input)
+		if typeof(remote_shell) == "string" or remote_shell == null then
+			ErrorMessage("Failed to connect to remote shell via FTP.")
+			wait(2)
+		else
+			InfoMessage("Connected successfully via FTP...")
+			wait(0.5)
+		end if
+	else
+		ErrorMessage("You have entered an invalid service type!")
+		wait(2)
+		MainMenu()
+	end if
+	return remote_shell
+end function
+
+DisplayMenu = function(title, options)
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + title + COLOUR_WHITE + " #--]</b></color>") // Title of the Menu
+	// Print Options
+	for index in range(1, options.len)
+		option = options[index-1]
+		if option isa map then
+			index = option.indexes[0]
+			option = option[index]
+		end if
+		print(COLOUR_WHITE + index +") " + COLOUR_ORANGE + option + "</color>")
+	end for
+	
+	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "Zenora Tool v" + version_number + COLOUR_WHITE + " #--]</b></color>\n") // Tool name with version
+end function
+
+// LOG CLEARING MENU
+LogsMenu = function() 
+	while true
+		clear_screen
+		options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
+		DisplayMenu("Clear Logs Menu", options)
+		index = user_input(get_path)
+		// Remote Logs
+		if index == "1" then
+			ClearLogs(ConnectService())
+		// Local Logs
+		else if index == "2" then
+			ClearLogs(get_shell)
+		// Main Menu
+		else if index == "3" then
+			MainMenu()
+		// Exit Program
+		else if index == "0" then
 			exit
 		end if
-	end function
-	
-	HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip)
-		computer = get_shell.host_computer
-		
-		// Save exploit details to LOCAL file
-		save_entry = [
-			"IP_Address: " + target_ip,
-			"Port: " + globals.port_num,
-			"Password: " + (opt_var or ""),
-			"Memory_Address: " + mem_addr,
-			"Exploit: " + exploit,
-			"MetaLib_Name: " + mLib.lib_name,
-			"MetaLib_Version: " + mLib.version,
-			"GeneratedOn: " + floor(current_date * 1000)].join(char(10))
-	
-		// Append to local creds file
-		creds_path = current_path + "/zenora_data/exploit_creds.txt"
-		creds = computer.File(creds_path)
-		if creds then
-			creds.set_content(creds.get_content + save_entry)
-		end if
-	
-		// Generate LOCAL reconnect script
-		script_content = [
-			"pkg = get_custom_object",
-			"",
-			"if not pkg.hasIndex(""metaxploit"") then",
-			"	metaxploit = include_lib(""/lib/metaxploit.so"")",
-			"	if not metaxploit then metaxploit = include_lib(current_path + ""/metaxploit.so"")",
-			"	if not metaxploit then ErrorMessage(""Cannot find metaxploit library in lib or current path folder."", true)",
-			"end if",
-			"",
-			"shell = get_shell",
-			"if not shell then exit(""No shell"")",
-			"",
-			"target_ip = """ + target_ip + """",
-			"mem_addr = """ + mem_addr + """",
-			"exploit = """ + exploit + """",
-			"password = """ + (opt_var or "") + """",
-			"",
-			"net_session = metaxploit.net_use(""" + target_ip + """, " + globals.port_num + ")",
-			"metaLib = net_session.dump_lib",
-			"",
-			"result = metaLib.overflow(mem_addr, exploit, password)",
-			"if typeof(result) == ""shell"" then result.start_terminal",].join(char(10))
-	
-		// Save script locally
-		script_path = current_path + "/zenora_scripts/reconnect_" + mem_addr + ".src"
-		script_file = computer.File(script_path)
-		if not script_file then
-			computer.touch(current_path + "/zenora_scripts", "reconnect_" + mem_addr + ".src")
-			script_file = computer.File(script_path)
-		end if
-		if script_file then script_file.set_content(script_content)
-	
-		get_shell.build(script_path, current_path + "/zenora_scripts", 1)
+	end while
+end function
 
-		// Print summary
-		PrintExploitDetails(target_ip, mem_addr, exploit, opt_var, mLib)
-	end function
-	
-	PrintExploitDetails = function(ip, addr, exploit, password, mLib)
-		print("\n" + COLOUR_YELLOW + "=== Exploit Details ===" + COLOUR_WHITE)
-		print("Target IP: " + ip)
-		print("Memory Address: " + addr)
-		print("Exploit: " + exploit)
-		print("Password: " + (password or "None set"))
-		print("Library: " + mLib.lib_name + " v" + mLib.version)
-		print("Reconnect Command: run home/zenora_scripts/reconnect_" + ip.replace(".", "_") + ".gs")
-		print("====================" + "</color>\n")
-	end function
-	
-	// [Rest of the original code remains unchanged]
-	
-	MainMenu = function() // MAIN MENU - FIRST MENU
-		while true
-			clear_screen
-			options  =  ["Remote & Local Hack"]
-			options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
-			options.push("Bank & Mail Management") 
-			options.push("Decipher Hash")
-			options.push("List Directory Files")
-			options.push("NMAP IP Address")
-			options.push("Wifi Cracker")
-			options.push("R-Shell Interface")
-			options.push("Clear Logs") // clear logs locally or remotely (remote ssh or ftp port required)
-			options.push({0: "Exit Program"})
-			DisplayMenu("Main Menu", options)
-			
-			host_comp = get_shell.host_computer
-			index = user_input(get_path)
-			
-			// Remote & Local IP Port Hack
-			if index == "1" then
-				RemoteLocalHack()
-			// Hack File Management
-			else if index == "2" then
-				HackManagementMenu()
-			// Bank & Mail Management
-			else if index == "3" then
-				BankMailManagementMenu()
-			else if index == "4" then
-				DecipherHash()
-			// List Directory Files
-			else if index == "5" then
-				location_input = RequestInput("Path Location: ")
-				// If user inputed nothing
-				if not location_input then
-					SyntaxMessage("Must input a path!")
+ClearLogs = function(shell)
+	if typeof(shell) == "computer" then computer = shell else computer = shell.host_computer // if shell by chance is a host_computer
+	log_file = computer.File("/var/system.log")
+	// if log_file doesnt exists
+	if not log_file then
+		ErrorMessage("Log file does not exist at /var/system.log!")
+		wait(2)
+		return
+	end if
+	// Check permission on log_file if can read else return
+	if not log_file.has_permission("r") then
+		ErrorMessage("You are unauthorized to access the log file. Permission denied.")
+		wait(2)
+		return
+	end if
+	// Create new "system.log" file on /root
+	create_log = computer.touch("/root", "system.log")
+	if typeof(create_log) == "string" then
+		ErrorMessage("Log file creation is unsuccessful! [" + create_log + "]")
+		wait(2)
+	end if
+	// Try to move new_log file to /var
+	new_log = computer.File("/root/system.log")
+	move_log = new_log.move("/var", "system.log")
+	if typeof(move_log) == "string" then // if true try delete new_log
+		ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
+		wait(2)
+		move_log = new_log.delete
+		if typeof(move_log) == "string" then
+			ErrorMessage("Unable to remove created system.log file! [" + move_log + "]")
+			wait(2)
+		end if
+	end if
+	InfoMessage("Log file has been cleared successfully.")
+	wait(2)
+end function
+
+is_library_file = function(target_input)
+	if target_input.indexOf(".so") != null then
+		shell = get_shell
+		lib_file = shell.host_computer.File("/lib/" + target_input)
+		if not lib_file then
+			lib_file = shell.host_computer.File("/home/" + active_user + "/" + target_input)
+		end if
+		if lib_file then
+			if lib_file.has_permission("r") then
+				return true
+			else
+				ErrorMessage("You are not authorized to access file " + lib_file.path + ". Permission denied.")
+				wait(2)
+			end if
+		else
+			ErrorMessage("This library file does not exist.")
+			wait(2)
+		end if
+	end if
+end function
+
+RemoteLocalHack = function()
+	target_input = RequestInput("IP / Local Library (ex init.so): ")
+	if is_valid_ip(target_input) or is_library_file(target_input) then
+		if is_lan_ip(target_input) or is_library_file(target_input) then
+			lan_input = RequestInput("Target LAN IP (Optional): ")
+			if is_lan_ip(lan_input) then
+				globals.ip_addr = lan_input
+			end if
+			if not is_library_file(target_input) then
+				net_session = metaxploit.net_use(target_input)
+				if not net_session then
+					ErrorMessage("Unable to connect to net session.")
 					wait(2)
 					MainMenu()
 				end if
-				path_result = host_comp.File(location_input)
-				ListTree(path_result)
-				ContinueProgram()
-			// NMAP IP Address
-			else if index == "6" then
-				nmap_input = RequestInput("Target IP: ")
-				NMAP(nmap_input)
-			// Wifi Cracker
-			else if index == "7" then
-				WifiCrack()
-			// R-Shell Interface
-			else if index == "8" then
-				ReverseShell()
-			// Clear Logs
-			else if index == "9" then
-				LogsMenu()
-			// Exit Program
-			else if index == "0" then
-				exit
+				metaLib = net_session.dump_lib
+			else
+				lib = metaxploit.load("/lib/" + target_input)
+				if not lib then
+					lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+				end if
+				if not lib then
+					ErrorMessage("Unable to initiate library file.")
+					wait(2)
+					MainMenu()
+				end if
+				metaLib = lib
 			end if
-		end while
-	end function
-	
-	ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
-		continue_input = RequestInput("Continue to Main Menu? y/n")
-		if continue_input.lower == "y" then
-			MainMenu()
-		else if continue_input.lower == "n" then
-			exit
 		else
-			ContinueProgram()
+			port_input = RequestInput("Target Port: ")
+			port_input = port_input.to_int
+			if typeof(port_input) == "number" then
+				opt_input = RequestInput("New Password (Optional): ")
+				if opt_input then
+					globals.opt_var = opt_input
+				else
+					globals.opt_var = null
+				end if
+				globals.ip_addr = target_input
+				globals.port_num = port_input
+				net_session = metaxploit.net_use(target_input, port_num)
+				if not net_session then
+					ErrorMessage("Unable to connect to net session.")
+					wait(2)
+					MainMenu()
+				end if
+				metaLib = net_session.dump_lib
+			end if
 		end if
-	end function
-	
-	ListTree = function(file)
-		if not file then
-			SyntaxMessage("File Doesnt exist")
+		BeginHack(metaLib)
+	else
+		if not is_library_file(target_input) then
+			ErrorMessage("You have entered an unrecognised library file.")
 			wait(2)
 			MainMenu()
 		end if
-		permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-		print(permission + COLOUR_BLUE + file.path + "</color>")
-		
-		list_dir = function(file)
-			files = file.get_folders + file.get_files
-			for f in files
-				spaces = " "*(f.path.split("/").len-1)
-				permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
-	
-				if f.is_folder then
-					print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
-					list_dir(f)
-				else
-					if f.is_binary then
-						print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
-					else
-						print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
-					end if
-				end if
-			end for
-		end function
-	
-		list_dir(file)
-	end function
-	
-	if params.len > 0 then
-		if params[0] == "-h" then // Help option - lists shortcut commands
-			InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
-			InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
-			InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
-			InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
-			InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
-			exit
-		else if params[0] == "-l" then // ls shortcut
-			if params.len > 1 then
-				input_path = get_shell.host_computer.File(params[1])
-				if input_path then
-					if input_path.has_permission("r") then
-						InfoMessage("Showing " + params[1] + " path...")
-						wait(1)
-						ListTree(input_path)
-						ContinueProgram()
-					else
-						ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
-						exit
-					end if
-				else
-					ErrorMessage("You have specified an incorrect path!")
-					SyntaxMessage(program_path.split("/")[-1] + " -l <path location>") 
-					exit
-				end if
-			else
-				current = get_shell.host_computer.File(current_path)
-				InfoMessage("Showing current path...")
-				wait(1)
-				ListTree(current)
-				ContinueProgram()
-			end if
-		else if params[0] == "-n" then // NMAP shortcut
-			if params.len > 1 then
-				if is_valid_ip(params[1]) then
-					shortcut = true
-					NMAP(params[1], shortcut)
-				else
-					ErrorMessage("You have entered an invalid target IP address.")
-					exit
-				end if
-			else
-				ErrorMessage("You have not entered a target IP address.")
-				SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
-				exit
-			end if
-		else if params[0] == "-w" then // Wifi Cracking
-			WifiCrack()
-		else if params[0] == "-d" then // Decipher
-			if params.len > 1 then
-				DecipherHash(params[1])
-			else
-				ErrorMessage("You must enter a decipher hash.")
-				SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
-				exit
-			end if
-		else if params[0] == "-v" or params[0] == "--version" then
-			exit(program_path.split("/")[-1]+" v" + version_number)
-		else
-			ErrorMessage("That command is not recognized!")
-			exit
+		if not is_valid_ip(target_input) then
+			ErrorMessage("You have entered an invalid IP address.")
+			wait(2)
+			MainMenu()
 		end if
 	end if
-	
-	if main_input == null then
+end function
+
+UploadResult = function(file, result)
+	if typeof(result) == "string" then
+		   ErrorMessage("There was an issue uploading the file " + file + " [" + result + "]")
+		wait(0.5)
+	else
+		InfoMessage("File " + file + " has been uploaded successfully.")
+		wait(0.5)
+	end if
+end function
+
+UploadHack = function()
+	shell = get_shell
+	remote_shell = ConnectService()
+	file = program_path
+	result = shell.scp(program_path, "/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/lib/crypto.so"
+	result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/lib/metaxploit.so"
+	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	file = "/usr/bin/ScanLan.exe"
+	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result)
+	ClearLogs(remote_shell)
+	StartTerminal(remote_shell)
+	ContinueProgram()
+end function
+
+RemoveResult = function(file, result)
+	if result then
+		   if result.has_permission("r") then
+			result.delete
+			InfoMessage("File " + file + " has been removed successfully.")
+			wait(0.5)
+		else
+			ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
+			wait(0.5)
+		end if
+	else
+		ErrorMessage("There was an error removing file " + file + ". Does it exist?")
+		wait(0.5)
+	end if
+end function
+
+RemoveHack = function(is_remote)
+	if is_remote then
+		shell = ConnectService()
+	else
+		shell = get_shell
+	end if
+	file = program_path
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/crypto.so"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/lib/metaxploit.so"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	file = "/usr/bin/ScanLan.exe"
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result)
+	ClearLogs(shell)
+	if is_remote then
+		StartTerminal(shell)
+	end if
+	is_remote = false
+	ContinueProgram()
+end function
+
+RetrieveResult = function(file, result)
+	if result then
+		   if result.has_permission("r") then
+			InfoMessage("Attempting to decipher file " + file + "...")
+			file_content = result.get_content.split("\n")
+			file_split = file_content[0].split(":")
+			wait(0.5)
+			decipher_pass = GetPassword(file_split)
+			InfoMessage("User - <b>" + file_split[0] + "</b>")
+			InfoMessage("Pass - <b>" + decipher_pass + "</b>")
+			wait(0.5)
+		else
+			ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
+			wait(0.5)
+		end if
+	else
+		ErrorMessage("There was an error retrieving file " + file + ". Does it exist?")
+		wait(0.5)
+	end if
+end function
+
+RetrieveBankMail = function(is_remote)
+	if is_remote then
+		shell = ConnectService()
+	else
+		shell = get_shell
+	end if
+	home_folder = shell.host_computer.File("/home")
+	if home_folder then
+		for folder in home_folder.get_folders
+			user_folder = folder.name
+			if user_folder != "guest" then
+				file = "/home/" + user_folder + "/Config/Bank.txt"
+				result = shell.host_computer.File(file)
+				RetrieveResult(file, result)
+				file =  "/home/" + user_folder + "/Config/Mail.txt"
+				result = shell.host_computer.File(file)
+				RetrieveResult(file, result)
+			end if
+		end for
+	else
+		ErrorMessage("Home folder does not exist!")
+	end if
+	ClearLogs(shell)
+	if is_remote then
+		StartTerminal(shell)
+	end if
+	is_remote = false
+	ContinueProgram()
+end function
+
+HackManagementMenu = function()
+	while true
+		clear_screen
+		options = ["Upload Hacks (Remote SSH/FTP - Credentials Required)"]
+		options.push("Remove Hacks (Local)")
+		options.push("Remove Hacks (Remote SSH/FTP - Credentials Required)")
+		options.push("Main Menu")
+		options.push({0: "Exit Program"})
+		DisplayMenu("Hack File Management Menu", options)
+		
+		index = user_input(get_path)
+		
+		// Upload Hacks (Remote)
+		if index == "1" then
+			UploadHack()
+		// Remove Hacks (Local)
+		else if index == "2" then
+			RemoveHack()
+		// Remove Hacks (Remote)
+		else if index == "3" then
+			RemoveHack(true)
+		// Main Menu
+		else if index == "4" then
+			MainMenu()
+		// Exit Program
+		else if index== "0" then
+			exit
+		end if
+	end while
+end function
+
+BankMailManagementMenu = function()
+	while true
+		clear_screen
+		options = ["Retrieve Bank & Mail (Remote SSH/FTP - Credentials Required)"]
+		options.push("Retrieve Bank & Mail (Local)")
+		options.push("Main Menu")
+		options.push({0: "Exit Program"})
+		DisplayMenu("Bank & Mail Management Menu", options)
+		
+		index = user_input(get_path)
+		
+		// Retrieve Information (Remote)
+		if index == "1" then
+			RetrieveBankMail(true)
+		// Retrieve Information (Local)
+		else if index == "2" then
+			RetrieveBankMail()
+		// Main Menu
+		else if index == "3" then
+			MainMenu()
+		// Exit Program
+		else if index== "0" then
+			exit
+		end if
+	end while
+end function
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then
+		ErrorMessage("Decipher failed. Wrong syntax!")
+		wait(2)
 		MainMenu()
 	end if
+	password = cryptools.decipher(userPass[1])
+	return password
+end function
+
+DecipherHash = function(hash)
+	if hash then
+		decipher_hash = hash
+	else
+		decipher_hash = RequestInput("Enter Path/Hash: ")
+	end if
+	if decipher_hash then
+		file = get_shell.host_computer.File(decipher_hash)
+		if file then
+			if not file.has_permission("r") then
+				ErrorMessage("You are not unauthorized to access file <b>" + decipher_hash + "</b>. Permission denied.")
+				wait(2)
+			end if
+			if file.is_binary then
+				ErrorMessage("Unable to read <b>" + decipher_hash + "</b> binary file.")
+				wait(2)
+			end if
+			if file.get_content.len == 0 then
+				ErrorMessage("File <b>" + decipher_hash + "</b> is empty.")
+				wait(2)
+			end if
+			lines = file.get_content.split("\n")
+		else if decipher_hash.len > 33 then
+			lines = [decipher_hash]
+		else
+			ErrorMessage("Cannot find decipher input: <b>" + decipher_hash + "</b>")
+			wait(2)
+		end if
+		for line in lines
+			userPass = line.split(":")
+			password = GetPassword(userPass)
+			if not password then
+				ErrorMessage("Password not found.")
+				wait(2)
+			else
+				print(password)
+				wait(2)
+				ContinueProgram()
+			end if
+		end for
+	else
+		ErrorMessage("You must enter a decipher file or hash in pass format!")
+		wait(2)
+	end if
+	MainMenu()
+end function
+
+// meta = include_lib(path_to_metaxploit.so)
+// if is_lan_ip then it's local, so net_session = meta.net_use(lan_ip) with no port is great // or net_session = meta.net_use(target ip, target port)
+// then we can dump the lib. metaLib = net_session.dump_lib
+// BeginHack = function(metaLib) for example
+// then we can buffer overflow the lib.
+// result = metaLib.overflow(memory address, exploit) for example
+// then we get the result of object types from here
+
+BeginHack = function(mLib)
+	pass = false
+	save_dir = current_path + "/zenora_data/"  // Saves to YOUR current directory
+	creds_file = "exploit_creds.txt"
+	scripts_dir = current_path + "/zenora_scripts/"
+
+	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
+	memories = metaxploit.scan(mLib)
+
+	// Create local directories (on YOUR PC)
+	computer = get_shell.host_computer
+	if not computer.File(save_dir) then computer.create_folder(current_path, "zenora_data")
+	if not computer.File(scripts_dir) then computer.create_folder(current_path, "zenora_scripts")
+
+	// Initialize credentials file (local)
+	full_creds_path = save_dir + creds_file
+	creds = computer.File(full_creds_path)
+	if not creds then
+		computer.touch(save_dir, creds_file)
+		creds = computer.File(full_creds_path)
+		if not creds then
+			ErrorMessage("Failed to create credentials file locally!")
+			return
+		end if
+	end if
+
+	for mem_addr in memories
+		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
+		if not vuln_strings then continue
+
+		vuln_split = vuln_strings.split("Unsafe check: ")
+		for str in vuln_split
+			if str == vuln_split[0] then continue
+			if pass then continue
+			
+			exploit = str[str.indexOf("<b>")+3 : str.indexOf("</b>")]
+			if not exploit then continue
+
+			// Execute exploit
+			result = null
+			if opt_var then
+				result = mLib.overflow(mem_addr, exploit, opt_var)
+			else if is_lan_ip(ip_addr) then
+				result = mLib.overflow(mem_addr, exploit, ip_addr)
+			else
+				result = mLib.overflow(mem_addr, exploit)
+			end if
+
+			if not result then
+				ErrorMessage("Exploit failed on " + mem_addr)
+				continue
+			end if
+
+			// ====== KEY FIX: Handle shell properly ======
+			if typeof(result) == "shell" then
+				// Save exploit details LOCALLY
+				HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
+				
+				// Prompt user for next action
+				print("\n" + COLOUR_GREEN + "<b>SUCCESS! Gained shell access.</b></color>")
+				print(COLOUR_WHITE + "1) Start terminal now")
+				print("2) Save & return to main menu")
+				print("3) Exit program</color>")
+				
+				choice = RequestInput("Choose action (1-3): ")
+				if choice == "1" then
+					result.start_terminal
+					exit
+				else if choice == "2" then
+					MainMenu()
+				else
+					exit
+				end if
+			else
+				// Non-shell result (error, etc.)
+				HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
+				wait(2)
+			end if
+		end for
+	end for
+
+	print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
+	
+	// Let user decide what to do next
+	print("\n" + COLOUR_WHITE + "1) Return to main menu")
+	print("2) Exit program</color>")
+	choice = RequestInput("Choose action (1-2): ")
+	if choice == "1" then
+		MainMenu()
+	else
+		exit
+	end if
+end function
+
+HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip)
+	computer = get_shell.host_computer
+	
+	// Save exploit details to LOCAL file
+	save_entry = [
+		"IP_Address: " + target_ip,
+		"Port: " + globals.port_num,
+		"Password: " + (opt_var or ""),
+		"Memory_Address: " + mem_addr,
+		"Exploit: " + exploit,
+		"MetaLib_Name: " + mLib.lib_name,
+		"MetaLib_Version: " + mLib.version,
+		"GeneratedOn: " + current_date,
+		"",
+		""].join(char(10))
+
+	// Append to local creds file
+	creds_path = current_path + "/zenora_data/exploit_creds.txt"
+	creds = computer.File(creds_path)
+	if creds then
+		creds.set_content(creds.get_content + save_entry)
+	end if
+
+	// Generate LOCAL reconnect script
+	script_content = [
+		"pkg = get_custom_object",
+		"",
+		"if not pkg.hasIndex(""metaxploit"") then",
+		"	metaxploit = include_lib(""/lib/metaxploit.so"")",
+		"	if not metaxploit then metaxploit = include_lib(current_path + ""/metaxploit.so"")",
+		"	if not metaxploit then ErrorMessage(""Cannot find metaxploit library in lib or current path folder."", true)",
+		"end if",
+		"",
+		"shell = get_shell",
+		"if not shell then exit(""No shell"")",
+		"",
+		"target_ip = """ + target_ip + """",
+		"mem_addr = """ + mem_addr + """",
+		"exploit = """ + exploit + """",
+		"password = """ + (opt_var or "") + """",
+		"",
+		"net_session = metaxploit.net_use(""" + target_ip + """, " + globals.port_num + ")",
+		"metaLib = net_session.dump_lib",
+		"",
+		"result = metaLib.overflow(mem_addr, exploit, password)",
+		"if typeof(result) == ""shell"" then result.start_terminal",].join(char(10))
+
+	// Save script locally
+	script_path = current_path + "/zenora_scripts/reconnect_" + mem_addr + ".src"
+	script_file = computer.File(script_path)
+	if not script_file then
+		computer.touch(current_path + "/zenora_scripts", "reconnect_" + mem_addr + ".src")
+		script_file = computer.File(script_path)
+	end if
+	if script_file then script_file.set_content(script_content)
+
+	get_shell.build(script_path, current_path + "/zenora_scripts", 1)
+	// Print summary
+	PrintExploitDetails(target_ip, mem_addr, exploit, opt_var, mLib)
+end function
+
+PrintExploitDetails = function(ip, addr, exploit, password, mLib)
+	print("\n" + COLOUR_YELLOW + "=== Exploit Details ===" + COLOUR_WHITE)
+	print("Target IP: " + ip)
+	print("Memory Address: " + addr)
+	print("Exploit: " + exploit)
+	print("Password: " + (password or "None set"))
+	print("Library: " + mLib.lib_name + " v" + mLib.version)
+	print("Reconnect Command: run home/zenora_scripts/reconnect_" + ip.replace(".", "_") + ".gs")
+	print("====================" + "</color>\n")
+end function
+
+// [Rest of the original code remains unchanged]
+
+MainMenu = function() // MAIN MENU - FIRST MENU
+	while true
+		clear_screen
+		options  =  ["Remote & Local Hack"]
+		options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
+		options.push("Bank & Mail Management") 
+		options.push("Decipher Hash")
+		options.push("List Directory Files")
+		options.push("NMAP IP Address")
+		options.push("Wifi Cracker")
+		options.push("R-Shell Interface")
+		options.push("Clear Logs") // clear logs locally or remotely (remote ssh or ftp port required)
+		options.push({0: "Exit Program"})
+		DisplayMenu("Main Menu", options)
+		
+		host_comp = get_shell.host_computer
+		index = user_input(get_path)
+		
+		// Remote & Local IP Port Hack
+		if index == "1" then
+			RemoteLocalHack()
+		// Hack File Management
+		else if index == "2" then
+			HackManagementMenu()
+		// Bank & Mail Management
+		else if index == "3" then
+			BankMailManagementMenu()
+		else if index == "4" then
+			DecipherHash()
+		// List Directory Files
+		else if index == "5" then
+			location_input = RequestInput("Path Location: ")
+			// If user inputed nothing
+			if not location_input then
+				SyntaxMessage("Must input a path!")
+				wait(2)
+				MainMenu()
+			end if
+			path_result = host_comp.File(location_input)
+			ListTree(path_result)
+			ContinueProgram()
+		// NMAP IP Address
+		else if index == "6" then
+			nmap_input = RequestInput("Target IP: ")
+			NMAP(nmap_input)
+		// Wifi Cracker
+		else if index == "7" then
+			WifiCrack()
+		// R-Shell Interface
+		else if index == "8" then
+			ReverseShell()
+		// Clear Logs
+		else if index == "9" then
+			LogsMenu()
+		// Exit Program
+		else if index == "0" then
+			exit
+		end if
+	end while
+end function
+
+ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
+	continue_input = RequestInput("Continue to Main Menu? y/n")
+	if continue_input.lower == "y" then
+		MainMenu()
+	else if continue_input.lower == "n" then
+		exit
+	else
+		ContinueProgram()
+	end if
+end function
+
+ListTree = function(file)
+	if not file then
+		SyntaxMessage("File Doesnt exist")
+		wait(2)
+		MainMenu()
+	end if
+	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
+	print(permission + COLOUR_BLUE + file.path + "</color>")
+	
+	list_dir = function(file)
+		files = file.get_folders + file.get_files
+		for f in files
+			spaces = " "*(f.path.split("/").len-1)
+			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
+
+			if f.is_folder then
+				print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
+				list_dir(f)
+			else
+				if f.is_binary then
+					print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
+				else
+					print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
+				end if
+			end if
+		end for
+	end function
+
+	list_dir(file)
+end function
+
+if params.len > 0 then
+	if params[0] == "-h" then // Help option - lists shortcut commands
+		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
+		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
+		InfoMessage(program_path.split("/")[-1] + " -d <decipher hash> - Decipher option")
+		InfoMessage(program_path.split("/")[-1] + " -w - Attempts Wifi cracking")
+		InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
+		exit
+	else if params[0] == "-l" then // ls shortcut
+		if params.len > 1 then
+			input_path = get_shell.host_computer.File(params[1])
+			if input_path then
+				if input_path.has_permission("r") then
+					InfoMessage("Showing " + params[1] + " path...")
+					wait(1)
+					ListTree(input_path)
+					ContinueProgram()
+				else
+					ErrorMessage("You are unauthorized to access " + params[1] + ". Permission denied.")
+					exit
+				end if
+			else
+				ErrorMessage("You have specified an incorrect path!")
+				SyntaxMessage(program_path.split("/")[-1] + " -l <path location>") 
+				exit
+			end if
+		else
+			current = get_shell.host_computer.File(current_path)
+			InfoMessage("Showing current path...")
+			wait(1)
+			ListTree(current)
+			ContinueProgram()
+		end if
+	else if params[0] == "-n" then // NMAP shortcut
+		if params.len > 1 then
+			if is_valid_ip(params[1]) then
+				shortcut = true
+				NMAP(params[1], shortcut)
+			else
+				ErrorMessage("You have entered an invalid target IP address.")
+				exit
+			end if
+		else
+			ErrorMessage("You have not entered a target IP address.")
+			SyntaxMessage(program_path.split("/")[-1] + " -n <target ip>")
+			exit
+		end if
+	else if params[0] == "-w" then // Wifi Cracking
+		WifiCrack()
+	else if params[0] == "-d" then // Decipher
+		if params.len > 1 then
+			DecipherHash(params[1])
+		else
+			ErrorMessage("You must enter a decipher hash.")
+			SyntaxMessage(program_path.split("/")[-1] + " -d <decipher hash>")
+			exit
+		end if
+	else if params[0] == "-v" or params[0] == "--version" then
+		exit(program_path.split("/")[-1]+" v" + version_number)
+	else
+		ErrorMessage("That command is not recognized!")
+		exit
+	end if
+end if
+
+if main_input == null then
+	MainMenu()
+end if
