@@ -485,7 +485,6 @@ ClearLogs = function(shell)
 			wait(2)
 		end if
 	end if
-
 	InfoMessage("Log file has been cleared successfully.")
 	wait(2)
 end function
@@ -606,7 +605,6 @@ UploadHack = function()
 	UploadResult(file, result)
 	ClearLogs(remote_shell)
 	StartTerminal(remote_shell)
-	ClearLogs(remote_shell)
 	ContinueProgram()
 end function
 
@@ -644,11 +642,11 @@ RemoveHack = function(is_remote)
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
+	ClearLogs(shell)
 	if is_remote then
 		StartTerminal(shell)
 	end if
 	is_remote = false
-	ClearLogs(shell)
 	ContinueProgram()
 end function
 
@@ -695,11 +693,11 @@ RetrieveBankMail = function(is_remote)
 	else
 		ErrorMessage("Home folder does not exist!")
 	end if
+	ClearLogs(shell)
 	if is_remote then
 		StartTerminal(shell)
 	end if
 	is_remote = false
-	ClearLogs(shell)
 	ContinueProgram()
 end function
 
