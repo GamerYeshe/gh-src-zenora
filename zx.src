@@ -953,30 +953,21 @@ ScanMetalib = function(mLib)
 end function
 
 BeginHack = function(mLib)
-	pass = null
+	pass = false
 	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
 	memories = ScanMetalib(mLib)
 	for i in memories
 		mem_addr = i.memory
 		unsecValue = i.unsecValue
 		result = mLib.overflow(mem_addr, unsecValue)
-		if globals.opt_var == null then
-			// if result failed try adding the lan ip
-			if not result and is_lan_ip(globals.ip_addr) then
-				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
-				if result then
-					InfoMessage("Connected to Lan IP: " + globals.ip_addr)
-					wait(1)
-				end if
-			end if
+		if opt_var == null then
+			result = mLib.overflow(mem_addr, unsecValue)
 		else
-			// if result failed try changing the password
-			if not result then
-				result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
-				if result then
-					InfoMessage("New Password: <b>" + globals.opt_var + "</b>")
-					wait(1)
-				end if
+			result = mLib.overflow(mem_addr, unsecValue, opt_var)
+			if result then
+				InfoMessage("Optional Var Called: <b>" + opt_var + "</b>")
+				wait(2)
 			end if
 		end if
 		// if result failed
@@ -996,124 +987,8 @@ BeginHack = function(mLib)
 			ExploitFile(result)
 		else
 			ErrorMessage("Unsupported object returned!")
-BeginHack = function(mLib)
-	pass = false
-	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
-	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
-	memories = metaxploit.scan(mLib)
-	for mem_addr in memories
-		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
-		if vuln_strings then
-			vuln_string = vuln_strings.split("Unsafe check: ")
-			for str in vuln_string
-				if str == vuln_string[0] then continue
-				if pass then continue
-				exploit = str[str.indexOf("<b>")+3:str.indexOf("</b>")]
-				if opt_var == null then
-					result = mLib.overflow(mem_addr, exploit)
-				else
-					result = mLib.overflow(mem_addr, exploit, opt_var)
-					if result then
-						InfoMessage("Optional Var Called: <b>" + opt_var + "</b>")
-						wait(2)
-					end if
-				end if
-				if not result then
-					ErrorMessage("Attack unsuccessful!")
-					wait(0.2)
-					continue
-				end if
-				if typeof(result) == "shell" then
-					while true
-						terminal_input = RequestInput("Start terminal? y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
-						if terminal_input.lower == "y" then
-							result.start_terminal
-							ContinueProgram()
-						else if terminal_input.lower == "n" then
-							break
-						else
-							continue
-						end if
-					end while	
-				else if typeof(result) == "computer" then
-					pass_file = result.File("/etc/passwd")
-					if not pass_file then
-						ErrorMessage("Password file does not exist.")
-						wait(2)
-						continue
-					end if
-					if pass_file != null then
-						if not pass_file.has_permission("r") then
-							ErrorMessage("You are unauthorized to access the password file. Permission denied.")
-							wait(2)
-							continue
-						else
-							InfoMessage("Attempting to decipher password...")
-							pass_content = result.File("/etc/passwd").get_content.split("\n")
-							pass = GetPassword(pass_content[0].split(":"))
-							InfoMessage("Root password: <b>" + pass + "</b>")
-							wait(2)
-						end if
-					else
-						ErrorMessage("Password file is empty.")
-						wait(2)
-						continue
-					end if
-				else if typeof(result) == "file" then
-					root_dir = result
-					while root_dir.path != "/"
-						root_dir = root_dir.parent
-					end while
-					for folder in root_dir.get_folders
-						if folder.name == "etc" then
-							etc_dir = folder
-							break
-						end if
-					end for
-					if not etc_dir.has_permission("r") then
-						ErrorMessage("You are unauthorized to access the /etc/ folder. Permission denied.")
-						wait(2)
-						continue
-					end if
-					for file in etc_dir.get_files
-						if file.name == "passwd" then
-							pass_file = file
-							break
-						end if
-					end for
-					if not pass_file then
-						ErrorMessage("Password file does not exist.")
-						wait(2)
-						continue
-					end if
-					if pass_file != null then
-						if not pass_file.has_permission("r") then
-							ErrorMessage("You are unauthorized to access the password file. Permission denied.")
-							wait(2)
-							continue
-						else
-							InfoMessage("Attempting to decipher password...")
-							pass_content = pass_file.get_content.split("\n")
-							pass = GetPassword(pass_content[0].split(":"))
-							InfoMessage("Root password: <b>"+ pass +"</b>")
-							wait(2)
-						end if
-					else
-						ErrorMessage("Password file is empty.")
-						wait(2)
-						continue
-					end if
-				else
-					ErrorMessage("Unsupported object returned!")
-					wait(2)
-					continue	
-				end if
-			end for
-		else
-			ErrorMessage("Failed to find vulnerabilities!")
-			wait(2)
 		end if
-	end for
+	end for		
 	globals.main_input = null
 	globals.ip_addr = null
 	globals.port_num = null
