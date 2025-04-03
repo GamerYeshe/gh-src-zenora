@@ -1,0 +1,88 @@
+// Main Menu UI
+printMenuUI = function()
+print(line1)
+print(" _    _ ___________ _____           _____ ______ _   __")
+print("| |  | |_   _|  ___|_   _|         /  __ \| ___ \ | / /")
+print("| |  | | | | | |_    | |   ______  | /  \/| |_/ / |/ / ")
+print("| |/\| | | | |  _|   | |  |______| | |    |    /|    \ ")
+print("\  /\  /_| |_| |    _| |_          | \__/\| |\ \| |\  \")
+print(" \/  \/ \___/\_|    \___/           \____/\_| \_\_| \_/")
+print(line1)  
+end function
+
+// Display Networks passed through in Shell GUI
+displayNetworkList = function(networks)
+	// show potential targets
+	print("#						BSSID		ESSID 	Strength")
+	print(line)
+	i = 1
+	
+	//for loop to split certaing things of the WifI networks display up
+	for network in networks
+		split = network.split(" ")
+		bssid = split[0]
+		strength = split[1]
+		essid = split[2]
+		print(i + ": <b>aireplay -b " + bssid + " -e " + essid + "</b> (" + strength + ")")
+		i = i + 1
+	end for
+end function
+
+// User Selection for Network Option
+selectNetworkOption = function(networks)	
+	netprompt = "Select the network you want to target, from 1 to " + networks.len + ": "
+	networkToCrack = user_input(netprompt)
+	print(line)
+
+	selectedNetwork = networks[networkToCrack.to_int - 1]
+	split = selectedNetwork.split(" ")
+	bssid = split[0]
+	essid = split[2]
+
+	shell = get_shell
+	shell.launch("/bin/aireplay", "-b " + bssid + " -e " + essid)
+	wait(1)
+	print(line)
+end function
+
+// Text Variables
+line = "--------------------"
+line1 = "#####################################################"  
+
+// Get Crypto
+crypto = include_lib("/lib/crypto.so")
+if not crypto then crypto = include_lib("crypto.so")
+if not crypto then exit("Missing crypto library, shutting down operation")
+
+// Network Variables
+hostPC = get_shell.host_computer
+interface = "wlan0"
+networks = hostPC.wifi_networks(interface)
+
+// INIT Monitoring
+if not crypto.airmon("start", interface) then exit ("Can not start monitoring on " + interface)
+
+// -----------
+// START (MAIN)
+// -----------
+printMenuUI()
+
+print("Available Networks:")
+print(line)
+	
+if not networks then exit("Unable to fetch networks list...")
+	
+displayNetworkList(networks) // Display Networks
+print(line)
+selectNetworkOption(networks) // Select Network Option [USER INPUT]
+	
+if not crypto.airmon("stop", interface)	then exit("Unable to stop monitoring on " + interface)
+
+print("Monitoring stopped")
+print(line)
+	
+capfilepath = home_dir + "/file.cap" // store our cap file's path 
+capfile = hostPC.File(capfilepath)    // store the actual cap file for use with automation below
+
+if not capfile then exit("Cap file is missing. Did you run aireplay?") //  check if cap file is missing
+if not capfile.has_permission("r") then exit("Insufficient permission to open cap file for reading.") 
