@@ -22,7 +22,7 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "2.5"
+version_number = "3.0"
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
