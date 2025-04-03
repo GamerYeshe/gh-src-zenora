@@ -76,6 +76,20 @@ else
 	cryptools = pkg.cryptools
 end if
 
+// check if string starts with substring
+string.startswith = function(self, substring)
+	if substring.len > self.len then return false
+	if substring.len == self.len then return substring == self
+	return substring == self[:substring.len]
+end function
+// check if string ends with substring
+string.endswith = function(self, substring)
+	if substring.len > self.len then return false
+	if substring.len == self.len then return substring == self
+	return substring == self[-substring.len:]
+end function
+
+
 // get the current path for example <user>@<device_name>:/home/user$>
 get_path = function()
 	host_comp = get_shell.host_computer
@@ -336,8 +350,6 @@ ReverseShell = function()
 	// If server has no incoming connections
 	else if shells.len <= 0 or shells == null then
 		ErrorMessage("Rshell server has no connections!")
-		wait(1)
-		InfoMessage("Try relaunching the program!")
 		wait(2)
 		MainMenu()
 	end if
@@ -470,25 +482,23 @@ ClearLogs = function(shell)
 		return
 	end if
 	// Create new "system.log" file on /root
-	err_code = computer.touch("/root", "system.log")
-	if err_code != 1 then
-		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
+	create_log = computer.touch("/root", "system.log")
+	if typeof(create_log) == "string" then
+		ErrorMessage("Log file creation is unsuccessful! [" + create_log + "]")
 		wait(2)
-		return
 	end if
 	// Try to move new_log file to /var
 	new_log = computer.File("/root/system.log")
-	err_code = new_log.move("/var", "system.log")
-	if typeof(err_code) == "string" then // if true try delete new_log
-		ErrorMessage("Log file move to /var/ is unsuccessful! [" + err_code + "]")
+	move_log = new_log.move("/var", "system.log")
+	if typeof(move_log) == "string" then // if true try delete new_log
+		ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
 		wait(2)
-		err_code = new_log.delete
-		if typeof(err_code) == "string" then
-			ErrorMessage("Unable to move created system.log file! [" + err_code + "]")
+		move_log = new_log.delete
+		if typeof(move_log) == "string" then
+			ErrorMessage("Unable to remove created system.log file! [" + move_log + "]")
 			wait(2)
 		end if
 	end if
-
 	InfoMessage("Log file has been cleared successfully.")
 	wait(2)
 end function
@@ -516,66 +526,103 @@ end function
 
 RemoteLocalHack = function()
     target_input = RequestInput("IP / Local Library (ex init.so): ")
-    if is_valid_ip(target_input) or is_library_file(target_input) then
-		if is_lan_ip(target_input) or is_library_file(target_input) then
-			lan_input = RequestInput("Target LAN IP (Optional): ")
-			if is_lan_ip(lan_input) then
-				globals.ip_addr = lan_input
-			end if
-			if not is_library_file(target_input) then
-				net_session = metaxploit.net_use(target_input)
-				if not net_session then
-        			ErrorMessage("Unable to connect to net session.")
-            		wait(2)
-            		MainMenu()
-        		end if
-				metaLib = net_session.dump_lib
-			else
-				lib = metaxploit.load("/lib/" + target_input)
-				if not lib then
-					lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+	if target_input then
+		optport = true
+		optlan = false
+		router = get_router
+		router_ip = router.local_ip
+		if is_valid_ip(target_input) then
+			if is_lan_ip(target_input) then
+				if router_ip == target_input then
+					optport = false
+					optlan = true
 				end if
-				if not lib then
-					ErrorMessage("Unable to initiate library file.")
+			end if
+			globals.ip_addr = target_input
+			if optport then
+				port_input = RequestInput("Target Port: ")
+				port_input = port_input.to_int
+				if port_input != null then
+					if typeof(port_input) == "number" then
+						if port_input == 0 then
+							optlan = true
+							if is_lan_ip(target_input) and not router_ip == target_input then
+								InfoMessage("Changing ip address exploitation to router " + router_ip + " on port 0.")
+								wait(2)
+								globals.ip_addr = router_ip
+							end if
+						end if
+						globals.port_num = port_input
+					else
+						ErrorMessage("You must enter a valid number for port!")
+						wait(2)
+						MainMenu()
+					end if
+				else
+					ErrorMessage("Port null value received. Try again.")
 					wait(2)
 					MainMenu()
 				end if
-				metaLib = lib
+			else
+				globals.port_num = 0
 			end if
+			net_session = metaxploit.net_use(globals.ip_addr, globals.port_num)
+			if not net_session then
+				ErrorMessage("Unable to connect to net session.")
+				wait(2)
+				MainMenu()
+			end if
+			metaLib = net_session.dump_lib
+		else if is_library_file(target_input) then
+			if router_ip == get_shell.host_computer.local_ip then
+				optlan = true
+			end if
+			lib = metaxploit.load("/lib/" + target_input)
+			if not lib then
+				lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+			end if
+			if not lib then
+				ErrorMessage("Unable to locate specified library file!")
+				wait(2)
+				MainMenu()
+			end if
+			metaLib = lib
 		else
-        	port_input = RequestInput("Target Port: ")
-			port_input = port_input.to_int
-        	if typeof(port_input) == "number" then
-            	opt_input = RequestInput("New Password (Optional): ")
-            	if opt_input then
-                	globals.opt_var = opt_input
-            	else
-                	globals.opt_var = null
-            	end if
-				globals.ip_addr = target_input
-            	globals.port_num = port_input
-            	net_session = metaxploit.net_use(target_input, port_num)
-				if not net_session then
-        			ErrorMessage("Unable to connect to net session.")
-            		wait(2)
-            		MainMenu()
-				end if
-				metaLib = net_session.dump_lib
-			end if
-        end if
-        BeginHack(metaLib)
-    else
-		if not is_library_file(target_input) then
-        	ErrorMessage("You have entered an unrecognised library file.")
-        	wait(2)
-			MainMenu()
-		end if
-		if not is_valid_ip(target_input) then
-			ErrorMessage("You have entered an invalid IP address.")
+			ErrorMessage("Unrecognized user input. Try again!")
 			wait(2)
 			MainMenu()
 		end if
-    end if
+		if optlan then
+			lan_input = RequestInput("Target LAN IP (Optional): ")
+			if lan_input then
+				if is_lan_ip(lan_input) then
+					globals.opt_var = lan_input
+				else
+					ErrorMessage("You must enter LAN format IP address!")
+					wait(2)
+					MainMenu()
+				end if
+			end if
+		else
+			pass_input = RequestInput("New Password (Optional): ")
+			if pass_input then
+				globals.opt_var = pass_input
+			else
+				globals.opt_var = null
+			end if
+		end if
+		if metaLib then
+			BeginHack(metaLib)
+		else
+			ErrorMessage("metaLib failed to load!")
+			wait(2)
+			MainMenu()
+		end if
+	else
+		ErrorMessage("You must enter a valid user input!")
+		wait(2)
+		MainMenu()
+	end if
 end function
 
 UploadResult = function(file, result)
@@ -603,17 +650,12 @@ UploadHack = function()
 	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
 	wait(0.2)
 	UploadResult(file, result)
-	file = "/lib/aptclient.so"
-	result = shell.scp("/lib/aptclient.so", "/lib/", remote_shell)
-	wait(0.2)
-	UploadResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
 	wait(0.2)
 	UploadResult(file, result)
 	ClearLogs(remote_shell)
 	StartTerminal(remote_shell)
-	ClearLogs(remote_shell)
 	ContinueProgram()
 end function
 
@@ -648,17 +690,14 @@ RemoveHack = function(is_remote)
 	file = "/lib/metaxploit.so"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
-	file = "/lib/aptclient.so"
-	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
+	ClearLogs(shell)
 	if is_remote then
 		StartTerminal(shell)
 	end if
 	is_remote = false
-	ClearLogs(shell)
 	ContinueProgram()
 end function
 
@@ -705,11 +744,11 @@ RetrieveBankMail = function(is_remote)
 	else
 		ErrorMessage("Home folder does not exist!")
 	end if
+	ClearLogs(shell)
 	if is_remote then
 		StartTerminal(shell)
 	end if
 	is_remote = false
-	ClearLogs(shell)
 	ContinueProgram()
 end function
 
@@ -836,125 +875,129 @@ end function
 // result = metaLib.overflow(memory address, exploit) for example
 // then we get the result of object types from here
 
-BeginHack = function(mLib)
-	pass = false
-	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
+ExploitShell = function(shell)
+	ExploitComputer(shell.host_computer)
+	while true
+		terminal_input = RequestInput("Start terminal? (y/n)") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
+		if terminal_input.lower == "y" then
+			shell.start_terminal
+			ContinueProgram()
+		else if terminal_input.lower == "n" then
+			break
+		else
+			continue
+		end if
+	end while
+end function
+
+ExploitComputer = function(computer)
+	InfoMessage("Local IP: " + computer.local_ip)
+	InfoMessage("Computer name: " + computer.get_name)
+	InfoMessage("Connected by: " + computer.active_net_card)
+	ExploitFile(computer.File("/"))
+end function
+
+ExploitFile = function(file)
+	while file.name != "/"
+		file = file.parent
+	end while
+	files = ListTree(file, false)
+	for f in files["files"]
+		// if file is Mail.txt or Bank.txt
+		if f.name == "Mail.txt" or f.name == "Bank.txt" then
+			InfoMessage("Found file: " + f.path)
+			if not file.has_permission("r") then
+				ErrorMessage("You are unauthorized to access this file. Permission denied.")
+				wait(1)
+				continue
+			end if
+			InfoMessage("Showing file contents...")
+			print(COLOUR_WHITE + "   -> </color>" + f.get_content)
+		// if file is passwd
+		else if f.path == "/etc/passwd" then
+			InfoMessage("Found file: " + f.path)
+			if not f.has_permission("r") then
+				ErrorMessage("You are unauthorized to access the password file. Permission denied.")
+				wait(1)
+				continue
+			end if
+			InfoMessage("Attempting to decipher password...")
+			pass_content = f.get_content.split("\n")
+			wait(1)
+			pass = GetPassword(pass_content[0].split(":"))
+			InfoMessage("Root password: <b>" + pass + "</b>")
+			wait(2)
+		end if
+	end for
+	show_directory = RequestInput("Show File Structure? (y/n): ")
+	if show_directory.lower == "y" then ListTree(file)
+end function
+
+// ScanMetalib - Scans metalib and returns a list[map] -> [ {"memory": str, "unsecValue": str} ]
+ScanMetalib = function(mLib)
+	info = []
 	memories = metaxploit.scan(mLib)
 	for mem_addr in memories
 		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
-		if vuln_strings then
-			vuln_string = vuln_strings.split("Unsafe check: ")
-			for str in vuln_string
-				if str == vuln_string[0] then continue
-				if pass then continue
-				exploit = str[str.indexOf("<b>")+3:str.indexOf("</b>")]
-				if opt_var == null then
-					if is_lan_ip(ip_addr) then
-						result = mLib.overflow(mem_addr, exploit, ip_addr)
-					else
-						result = mLib.overflow(mem_addr, exploit)
-					end if
-				else
-					result = mLib.overflow(mem_addr, exploit, opt_var)
-					if result then
-						InfoMessage("New password: <b>" + opt_var + "</b>")
-						wait(2)
-					end if
-				end if
-				if not result then
-					ErrorMessage("Attack unsuccessful!")
-					wait(0.2)
-					continue
-				end if
-				if typeof(result) == "shell" then
-					while true
-						terminal_input = RequestInput("Start terminal? y/n") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
-						if terminal_input.lower == "y" then
-							result.start_terminal
-							ContinueProgram()
-						else if terminal_input.lower == "n" then
-							break
-						else
-							continue
-						end if
-					end while	
-				else if typeof(result) == "computer" then
-					pass_file = result.File("/etc/passwd")
-					if not pass_file then
-						ErrorMessage("Password file does not exist.")
-						wait(2)
-						continue
-					end if
-					if pass_file != null then
-						if not pass_file.has_permission("r") then
-							ErrorMessage("You are unauthorized to access the password file. Permission denied.")
-							wait(2)
-							continue
-						else
-							InfoMessage("Attempting to decipher password...")
-							pass_content = result.File("/etc/passwd").get_content.split("\n")
-							pass = GetPassword(pass_content[0].split(":"))
-							InfoMessage("Root password: <b>" + pass + "</b>")
-							wait(2)
-						end if
-					else
-						ErrorMessage("Password file is empty.")
-						wait(2)
-						continue
-					end if
-				else if typeof(result) == "file" then
-					root_dir = result
-					while root_dir.path != "/"
-						root_dir = root_dir.parent
-					end while
-					for folder in root_dir.get_folders
-						if folder.name == "etc" then
-							etc_dir = folder
-							break
-						end if
-					end for
-					if not etc_dir.has_permission("r") then
-						ErrorMessage("You are unauthorized to access the /etc/ folder. Permission denied.")
-						wait(2)
-						continue
-					end if
-					for file in etc_dir.get_files
-						if file.name == "passwd" then
-							pass_file = file
-							break
-						end if
-					end for
-					if not pass_file then
-						ErrorMessage("Password file does not exist.")
-						wait(2)
-						continue
-					end if
-					if pass_file != null then
-						if not pass_file.has_permission("r") then
-							ErrorMessage("You are unauthorized to access the password file. Permission denied.")
-							wait(2)
-							continue
-						else
-							InfoMessage("Attempting to decipher password...")
-							pass_content = pass_file.get_content.split("\n")
-							pass = GetPassword(pass_content[0].split(":"))
-							InfoMessage("Root password: <b>"+ pass +"</b>")
-							wait(2)
-						end if
-					else
-						ErrorMessage("Password file is empty.")
-						wait(2)
-						continue
-					end if
-				else
-					ErrorMessage("Unsupported object returned!")
-					wait(2)
-					continue	
-				end if
-			end for
-		else
+		// Unable to get vulnerabilities
+		if not vuln_strings then
 			ErrorMessage("Failed to find vulnerabilities!")
 			wait(2)
+		end if
+		// Find the unsecure value
+		for line in vuln_strings.split("\n")
+			if not line.startswith("Unsafe check: ") then continue
+			info.push({"memory": mem_addr, "unsecValue": line[line.indexOf("<b>")+3:line.indexOf("</b>")]})
+		end for
+	end for
+	return info
+end function
+
+BeginHack = function(mLib)
+	pass = false
+	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
+	memories = ScanMetalib(mLib)
+	for i in memories
+		mem_addr = i.memory
+		unsecValue = i.unsecValue
+		result = null
+		if globals.opt_var == null then
+			result = mLib.overflow(mem_addr, unsecValue)
+			if not result and is_lan_ip(globals.ip_addr) then
+				// If result fails try with same local ip in overflow
+				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
+			end if
+		else
+			result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
+			if result then
+				if result and is_lan_ip(globals.opt_var) then
+					InfoMessage("Optional LAN IP Called: <b>" + globals.opt_var + "</b>")
+					wait(2)
+				else
+					InfoMessage("Optional Password Called: <b>" + globals.opt_var + "</b>")
+					wait(2)
+				end if
+			else
+				result = mLib.overflow(mem_addr, unsecValue)
+			end if
+		end if
+		if not result then
+			ErrorMessage("Attack unsuccessful!")
+			wait(0.2)
+			continue
+		end if
+		// Shell
+		if typeof(result) == "shell" then
+			ExploitShell(result)
+		// Computer
+		else if typeof(result) == "computer" then
+			ExploitComputer(result)
+		// File
+		else if typeof(result) == "file" then
+			ExploitFile(result)
+		else
+			ErrorMessage("Unsupported object returned!")
 		end if
 	end for
 	globals.main_input = null
@@ -971,7 +1014,7 @@ end function
 MainMenu = function() // MAIN MENU - FIRST MENU
 	while true
 		clear_screen
-		options  =  ["Remote & Local IP Port Hack"]
+		options  =  ["Remote & Local Hack"]
 		options.push("Hack File Management") // upload files remotely. remove files locally or remotely (remote ssh or ftp port required)
 		options.push("Bank & Mail Management") 
 		options.push("Decipher Hash")
@@ -1040,35 +1083,38 @@ ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit pr
 	end if
 end function
 
-ListTree = function(file)
+ListTree = function(file, print_directory=true)
 	if not file then
-		SyntaxMessage("File Doesnt exist")
+		ErrorMessage("Path doesnt exist")
 		wait(2)
 		MainMenu()
 	end if
 	permission = COLOUR_WHITE+"|_"+file.permissions.replace("-", "_")
-	print(permission + COLOUR_BLUE + file.path + "</color>")
-	
+	if print_directory then print(permission + COLOUR_BLUE + file.path + "</color>")
+	folders = {"files": [], "binary": []}
+
 	list_dir = function(file)
 		files = file.get_folders + file.get_files
 		for f in files
 			spaces = " "*(f.path.split("/").len-1)
 			permission = spaces+COLOUR_WHITE+"|_"+f.permissions.replace("-", "_")			
-
+			// file is a folder
 			if f.is_folder then
-				print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
+				if print_directory then print(permission + " " + COLOUR_BLUE+ f.name() + "</color></b>")
 				list_dir(f)
+			// file is a binary
+			else if f.is_binary then
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
+				outer.folders["binary"].push(f)
+			// well file is file :)
 			else
-				if f.is_binary then
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + COLOUR_YELLOW + "*</color>")
-				else
-					print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
-				end if
+				if print_directory then print(permission + "</b> " + COLOUR_PURPLE + f.name + "</color>")
+				outer.folders["files"].push(f)
 			end if
 		end for
 	end function
-
 	list_dir(file)
+	return folders
 end function
 
 if params.len > 0 then
