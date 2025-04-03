@@ -512,66 +512,103 @@ end function
 
 RemoteLocalHack = function()
     target_input = RequestInput("IP / Local Library (ex init.so): ")
-    if is_valid_ip(target_input) or is_library_file(target_input) then
-		if is_lan_ip(target_input) or is_library_file(target_input) then
-			lan_input = RequestInput("Target LAN IP (Optional): ")
-			if is_lan_ip(lan_input) then
-				globals.ip_addr = lan_input
-			end if
-			if not is_library_file(target_input) then
-				net_session = metaxploit.net_use(target_input)
-				if not net_session then
-        			ErrorMessage("Unable to connect to net session.")
-            		wait(2)
-            		MainMenu()
-        		end if
-				metaLib = net_session.dump_lib
-			else
-				lib = metaxploit.load("/lib/" + target_input)
-				if not lib then
-					lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+	if target_input then
+		optport = true
+		optlan = false
+		router = get_router
+		router_ip = router.local_ip
+		if is_valid_ip(target_input) then
+			if is_lan_ip(target_input) then
+				if router_ip == target_input then
+					optport = false
+					optlan = true
 				end if
-				if not lib then
-					ErrorMessage("Unable to initiate library file.")
+			end if
+			globals.ip_addr = target_input
+			if optport then
+				port_input = RequestInput("Target Port: ")
+				port_input = port_input.to_int
+				if port_input != null then
+					if typeof(port_input) == "number" then
+						if port_input == 0 then
+							optlan = true
+							if is_lan_ip(target_input) and not router_ip == target_input then
+								InfoMessage("Changing target ip address to " + router_ip + " on port 0.")
+								wait(2)
+								globals.ip_addr = router_ip
+							end if
+						end if
+						globals.port_num = port_input
+					else
+						ErrorMessage("You must enter a valid number for port!")
+						wait(2)
+						MainMenu()
+					end if
+				else
+					ErrorMessage("Port null value received. Try again.")
 					wait(2)
 					MainMenu()
 				end if
-				metaLib = lib
+			else
+				globals.port_num = 0
 			end if
+			net_session = metaxploit.net_use(globals.ip_addr, globals.port_num)
+			if not net_session then
+				ErrorMessage("Unable to connect to net session.")
+				wait(2)
+				MainMenu()
+			end if
+			metaLib = net_session.dump_lib
+		else if is_library_file(target_input) then
+			if router_ip == get_shell.host_computer.local_ip then
+				optlan = true
+			end if
+			lib = metaxploit.load("/lib/" + target_input)
+			if not lib then
+				lib = metaxploit.load("/home/" + active_user + "/" + target_input)
+			end if
+			if not lib then
+				ErrorMessage("Unable to locate specified library file!")
+				wait(2)
+				MainMenu()
+			end if
+			metaLib = lib
 		else
-        	port_input = RequestInput("Target Port: ")
-			port_input = port_input.to_int
-        	if typeof(port_input) == "number" then
-            	opt_input = RequestInput("New Password (Optional): ")
-            	if opt_input then
-                	globals.opt_var = opt_input
-            	else
-                	globals.opt_var = null
-            	end if
-				globals.ip_addr = target_input
-            	globals.port_num = port_input
-            	net_session = metaxploit.net_use(target_input, port_num)
-				if not net_session then
-        			ErrorMessage("Unable to connect to net session.")
-            		wait(2)
-            		MainMenu()
-				end if
-				metaLib = net_session.dump_lib
-			end if
-        end if
-        BeginHack(metaLib)
-    else
-		if not is_library_file(target_input) then
-        	ErrorMessage("You have entered an unrecognised library file.")
-        	wait(2)
-			MainMenu()
-		end if
-		if not is_valid_ip(target_input) then
-			ErrorMessage("You have entered an invalid IP address.")
+			ErrorMessage("Unrecognized user input. Try again!")
 			wait(2)
 			MainMenu()
 		end if
-    end if
+		if optlan then
+			lan_input = RequestInput("Target LAN IP (Optional): ")
+			if lan_input then
+				if is_lan_ip(lan_input) then
+					globals.opt_var = lan_input
+				else
+					ErrorMessage("You must enter LAN format IP address!")
+					wait(2)
+					MainMenu()
+				end if
+			end if
+		else
+			pass_input = RequestInput("New Password (Optional): ")
+			if pass_input then
+				globals.opt_var = pass_input
+			else
+				globals.opt_var = null
+			end if
+		end if
+		if metaLib then
+			BeginHack(metaLib)
+		else
+			ErrorMessage("metaLib failed to load!")
+			wait(2)
+			MainMenu()
+		end if
+	else
+		ErrorMessage("You must enter a valid user input!")
+		wait(2)
+		MainMenu()
+	end if
 end function
 
 UploadResult = function(file, result)
@@ -827,6 +864,7 @@ end function
 BeginHack = function(mLib)
 	pass = false
 	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
 	memories = metaxploit.scan(mLib)
 	for mem_addr in memories
 		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
@@ -837,15 +875,11 @@ BeginHack = function(mLib)
 				if pass then continue
 				exploit = str[str.indexOf("<b>")+3:str.indexOf("</b>")]
 				if opt_var == null then
-					if is_lan_ip(ip_addr) then
-						result = mLib.overflow(mem_addr, exploit, ip_addr)
-					else
-						result = mLib.overflow(mem_addr, exploit)
-					end if
+					result = mLib.overflow(mem_addr, exploit)
 				else
 					result = mLib.overflow(mem_addr, exploit, opt_var)
 					if result then
-						InfoMessage("New password: <b>" + opt_var + "</b>")
+						InfoMessage("Optional Var Called: <b>" + opt_var + "</b>")
 						wait(2)
 					end if
 				end if
