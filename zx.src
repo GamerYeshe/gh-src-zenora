@@ -9,7 +9,8 @@
 // REMINDER! - Improvement Goals - REMINDER!
 // Mail & Bank .txt file as new function (remotely connect_service() and locally), and integrated into submenu. Also can call during exploitation for overflow - DONE BUT NEEDS WORK
 // Maybe add user selection to retrieve bank and mail, or all to decipher all users info - IN PROGRESS
-urther re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS  
+// Further re-structuring of the way menu navigation works. Shortcut boolean needs adding. If shortcut command then do your thing and exit especially. No menus needed for shortcut commands - IN PROGRESS 
+	 
 COLOUR_WHITE = "<color=#ffffff>"
 COLOUR_BLUE = "<color=#0080ff>"
 COLOUR_GREEN = "<color=#3d7932>"
