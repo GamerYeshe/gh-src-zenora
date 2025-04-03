@@ -600,14 +600,6 @@ UploadHack = function()
 	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
 	wait(0.2)
 	UploadResult(file, result)
-	file = "/lib/aptclient.so"
-	result = shell.scp("/lib/aptclient.so", "/lib/", remote_shell)
-	wait(0.2)
-	UploadResult(file, result)
-	file = "/lib/kernel_module.so"
-	result = shell.scp("/lib/kernel_module.so", "/lib/", remote_shell)
-	wait(0.2)
-	UploadResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
 	wait(0.2)
@@ -647,12 +639,6 @@ RemoveHack = function(is_remote)
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
 	file = "/lib/metaxploit.so"
-	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
-	file = "/lib/aptclient.so"
-	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
-	file = "/lib/kernel_module.so"
 	result = shell.host_computer.File(file)
 	RemoveResult(file, result)
 	file = "/usr/bin/ScanLan.exe"
