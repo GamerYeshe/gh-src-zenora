@@ -1,4 +1,4 @@
-// Zenora Multi Tool :: Written by Aphex, GOLDEN, & NocturnalVirus
+// Zenora Multi Tool :: Written by Aphex, GOLDEN & NocturnalVirus
 
 // READ! - Notes - READ!
 // Use program_name -h (ex: zx -h) for shortcut commands. Working on this more.
@@ -22,7 +22,7 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "3.0"
+version_number = "3.1"
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
@@ -944,7 +944,7 @@ ScanMetalib = function(mLib)
 			ErrorMessage("Failed to find vulnerabilities!")
 			wait(2)
 		end if
-		// Find the unsecure value
+		// Find the unsecure value (exploit)
 		for line in vuln_strings.split("\n")
 			if not line.startswith("Unsafe check: ") then continue
 			info.push({"memory": mem_addr, "unsecValue": line[line.indexOf("<b>")+3:line.indexOf("</b>")]})
@@ -960,7 +960,8 @@ BeginHack = function(mLib)
 	scripts_dir = current_path + "/zenora_scripts/"
 
 	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
-	memories = metaxploit.scan(mLib)
+	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
+	memories = ScanMetalib(mLib)
 
 	// Create local directories (on YOUR PC)
 	computer = get_shell.host_computer
@@ -979,37 +980,40 @@ BeginHack = function(mLib)
 		end if
 	end if
 
-	for mem_addr in memories
-		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
-		if not vuln_strings then continue
-
-		vuln_split = vuln_strings.split("Unsafe check: ")
-		for str in vuln_split
-			if str == vuln_split[0] then continue
-			if pass then continue
-			
-			exploit = str[str.indexOf("<b>")+3 : str.indexOf("</b>")]
-			if not exploit then continue
-
-			// Execute exploit
-			result = null
-			if opt_var then
-				result = mLib.overflow(mem_addr, exploit, opt_var)
-			else if is_lan_ip(ip_addr) then
-				result = mLib.overflow(mem_addr, exploit, ip_addr)
+	for i in memories
+		mem_addr = i.memory
+		unsecValue = i.unsecValue
+		result = null
+		if globals.opt_var == null then
+			result = mLib.overflow(mem_addr, unsecValue)
+			if not result and is_lan_ip(globals.ip_addr) then
+				// If result fails try with same local ip in overflow
+				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
+			end if
+		else
+			result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
+			if result then
+				if result and is_lan_ip(globals.opt_var) then
+					InfoMessage("Optional LAN IP Called: <b>" + globals.opt_var + "</b>")
+					wait(2)
+				else
+					InfoMessage("Optional Password Called: <b>" + globals.opt_var + "</b>")
+					wait(2)
+				end if
 			else
-				result = mLib.overflow(mem_addr, exploit)
+				result = mLib.overflow(mem_addr, unsecValue)
 			end if
+		end if
+		if not result then
+			ErrorMessage("Attack unsuccessful!")
+			wait(0.2)
+			continue
+		end if
 
-			if not result then
-				ErrorMessage("Exploit failed on " + mem_addr)
-				continue
-			end if
-
-			// ====== KEY FIX: Handle shell properly ======
 			if typeof(result) == "shell" then
 				// Save exploit details LOCALLY
-				HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
+				HandleExploitResult(result, mLib, mem_addr, unsecValue, ip_addr, false)
+				ExploitShell(result)
 				
 				// Prompt user for next action
 				print("\n" + COLOUR_GREEN + "<b>SUCCESS! Gained shell access.</b></color>")
@@ -1026,22 +1030,33 @@ BeginHack = function(mLib)
 				else
 					exit
 				end if
-			else
-				// Non-shell result (error, etc.)
-				HandleExploitResult(result, mLib, mem_addr, exploit, ip_addr)
-				wait(2)
-			end if
+			// Computer
+			else if typeof(result) == "computer" then
+				ExploitComputer(result)
+			// File
+			else if typeof(result) == "file" then
+				ExploitFile(result)
+		else
+			ErrorMessage("Unsupported object returned!")
+		end if
 		end for
-	end for
-	show_directory = RequestInput("Show File Structure? (y/n): ")
-	if show_directory.lower == "y" then ListTree(file)
+		globals.main_input = null
+		globals.ip_addr = null
+		globals.port_num = null
+		globals.metaLib = null
+		globals.comp = get_shell.host_computer.File("/")
+		print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
+		print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
+		wait(2)
+		ContinueProgram()
 end function
 
-HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip)
+HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip, is_err)
 	computer = get_shell.host_computer
 	
 	// Save exploit details to LOCAL file
 	save_entry = [
+		"HasError: " + is_err,
 		"IP_Address: " + target_ip,
 		"Port: " + globals.port_num,
 		"Password: " + (opt_var or ""),
@@ -1058,6 +1073,10 @@ HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip)
 	creds = computer.File(creds_path)
 	if creds then
 		creds.set_content(creds.get_content + save_entry)
+	end if
+
+	if(is_err) then
+		return
 	end if
 
 	// Generate LOCAL reconnect script
