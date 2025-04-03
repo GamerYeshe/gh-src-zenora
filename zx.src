@@ -468,21 +468,20 @@ ClearLogs = function(shell)
 		return
 	end if
 	// Create new "system.log" file on /root
-	err_code = computer.touch("/root", "system.log")
-	if err_code != 1 then
-		ErrorMessage("Log file creation is unsuccessful! [" + err_code + "]")
+	create_log = computer.touch("/root", "system.log")
+	if typeof(create_log) == "string" then
+		ErrorMessage("Log file creation is unsuccessful! [" + create_log + "]")
 		wait(2)
-		return
 	end if
 	// Try to move new_log file to /var
 	new_log = computer.File("/root/system.log")
-	err_code = new_log.move("/var", "system.log")
-	if typeof(err_code) == "string" then // if true try delete new_log
-		ErrorMessage("Log file move to /var/ is unsuccessful! [" + err_code + "]")
+	move_log = new_log.move("/var", "system.log")
+	if typeof(move_log) == "string" then // if true try delete new_log
+		ErrorMessage("Log file move to /var/ is unsuccessful! [" + move_log + "]")
 		wait(2)
-		err_code = new_log.delete
-		if typeof(err_code) == "string" then
-			ErrorMessage("Unable to move created system.log file! [" + err_code + "]")
+		move_log = new_log.delete
+		if typeof(move_log) == "string" then
+			ErrorMessage("Unable to remove created system.log file! [" + move_log + "]")
 			wait(2)
 		end if
 	end if
