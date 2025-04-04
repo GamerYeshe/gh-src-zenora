@@ -22,7 +22,7 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "3.11"
+version_number = "3.12"
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
@@ -50,11 +50,16 @@ ip_addr = null
 port_num = null
 opt_var = null
 metaLib = null
-curr_memAddress = null
-curr_unsecValue = null
-curr_rootPass = null
-curr_passContent = null
-
+file_info = {
+	"name": null,
+	"path": null,
+	"content": null}
+exploit_data = { 
+	"memAddress": null, 
+	"unsecValue": null, 
+	"rootPass": null, 
+	"passContent": null, 
+	"files": []}
 pkg = get_custom_object
 comp = get_shell.host_computer.File("/")
 
@@ -881,7 +886,7 @@ end function
 
 ExploitShell = function(shell)
 	ExploitComputer(shell.host_computer)
-	HandleExploitResult(shell, globals.metaLib, globals.curr_memAddress, globals.curr_unsecValue, globals.ip_addr, true, globals.curr_rootPass)
+	HandleExploitResult(shell, globals.metaLib, globals.exploit_data.memAddress, globals.exploit_data.unsecValue, globals.ip_addr, true, globals.exploit_data.rootPass)
 	while true
 		terminal_input = RequestInput("Start terminal? (y/n)") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
 		if terminal_input.lower == "y" then
@@ -896,10 +901,10 @@ ExploitShell = function(shell)
 end function
 
 ExploitComputer = function(computer)
-	computerLogs = ["Local IP: " + computer.local_ip,
+	computerLogs = ["-- Exploit Computer --",
 	"Computer name: " + computer.get_name,
+	"Local IP: " + computer.local_ip,
 	"Connected by: " + computer.active_net_card]
-
 	InfoMessage(computerLogs.join(char(10)))
 	PushExploitLogMessage(computerLogs.join(char(10)))
 	ExploitFile(computer.File("/"))
@@ -913,6 +918,15 @@ ExploitFile = function(file)
 	for f in files["files"]
 		// if file is Mail.txt or Bank.txt
 		if f.name == "Mail.txt" or f.name == "Bank.txt" then
+			newFile = new file_info
+			newFile.name = f.name
+			newFile.path = f.path
+			newFile.content = f.get_content
+			if (globals.exploit_data.files.indexOf(newFile) != null) then
+				PushExploitLogMessage("Already found this file: " + f.path + ", skipping...", globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len-1) // should add newline after bank line
+				InfoMessage("File already scanned: " + f.path + ", skipping...")
+				continue
+			end if
 			PushExploitLogMessage("Found file: " + f.path, false)
 			InfoMessage("Found file: " + f.path)
 			if not file.has_permission("r") then
@@ -923,6 +937,7 @@ ExploitFile = function(file)
 			InfoMessage("Showing file contents...")
 			PushExploitLogMessage("Contents: " + f.get_content)
 			print(COLOUR_WHITE + "   -> </color>" + f.get_content)
+			TrackFile(f.path, f.get_content, f.name)
 		// if file is passwd
 		else if f.path == "/etc/passwd" then
 			InfoMessage("Found file: " + f.path)
@@ -932,17 +947,18 @@ ExploitFile = function(file)
 				continue
 			end if
 			pass_content = f.get_content.split("\n")
-			if globals.curr_passContent == pass_content then
-				PushExploitLogMessage("Already found this passwd file, skipping.." + char(10) + "Content: " + pass_content)
+			if globals.exploit_data.passContent == pass_content then
+				PushExploitLogMessage("Already found this passwd file, skipping..")
 				continue
 			end if
 			PushExploitLogMessage("Found Password(s): " + pass_content + char(10) + "Attempting decipher...")
 			InfoMessage("Attempting to decipher password...")
-			globals.curr_passContent = pass_content
+			globals.exploit_data.passContent = pass_content
 			wait(1)
 			pass = GetPassword(pass_content[0].split(":"))
+			PushExploitLogMessage("Root password: <b>" + pass + "</b>")
 			InfoMessage("Root password: <b>" + pass + "</b>")
-			globals.curr_rootPass = pass
+			globals.exploit_data.rootPass = pass
 			wait(2)
 		end if
 	end for
@@ -998,11 +1014,11 @@ BeginHack = function(mLib)
 		end if
 	end if
 
-	for i in memories
-		mem_addr = i.memory
-		unsecValue = i.unsecValue
-		globals.curr_unsecValue = unsecValue
-		globals.curr_memAddress = mem_addr
+	for memory in memories
+		mem_addr = memory.memory
+		unsecValue = memory.unsecValue
+		globals.exploit_data.unsecValue = unsecValue
+		globals.exploit_data.memAddress = mem_addr
 		result = null
 		if globals.opt_var == null then
 			InfoMessage("Attempting overflow.")
@@ -1013,6 +1029,7 @@ BeginHack = function(mLib)
 				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
 			end if
 		else
+			InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] with optional value.")
 			result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
 			if result then
 				if result and is_lan_ip(globals.opt_var) then
@@ -1023,6 +1040,7 @@ BeginHack = function(mLib)
 					wait(2)
 				end if
 			else
+				InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "]")
 				result = mLib.overflow(mem_addr, unsecValue)
 			end if
 		end if
@@ -1031,8 +1049,8 @@ BeginHack = function(mLib)
 			wait(0.2)
 			continue
 		end if
+		useNewLine = memory
 		HandleExploitResult(result, mLib, mem_addr, unsecValue, globals.ip_addr, null)
-
 			if typeof(result) == "shell" then
 				ExploitShell(result)
 			// Computer
@@ -1045,19 +1063,23 @@ BeginHack = function(mLib)
 			ErrorMessage("Unsupported object returned!")
 		end if
 		end for
-		globals.main_input = null
-		globals.ip_addr = null
-		globals.port_num = null
-		globals.curr_unsecValue = null
-		globals.curr_memAddress = null
-		globals.curr_rootPass = null
-		globals.curr_passContent = null
-		globals.metaLib = null
-		globals.comp = get_shell.host_computer.File("/")
+		ResetGlobals()
 		print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
 		print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
 		wait(2)
 		ContinueProgram()
+end function
+ResetGlobals = function()
+	globals.main_input = null
+	globals.ip_addr = null
+	globals.port_num = null
+	globals.exploit_data.unsecValue = null
+	globals.exploit_data.memAddress = null
+	globals.exploit_data.rootPass = null
+	globals.exploit_data.passContent = null
+	globals.exploit_data.files = []
+	globals.metaLib = null
+	globals.comp = get_shell.host_computer.File("/")
 end function
 
 HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip, is_valid, root_pass = null)
@@ -1066,66 +1088,72 @@ HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip, is_va
 	if not target_ip or not is_valid_ip(target_ip) then target_ip = computer.local_ip // if not target_ip or not valid then use computers local_ip
 
 	AddExploitDetailsToSaveEntry(computer, result, mLib, mem_addr, exploit, target_ip, is_valid, root_pass)
-
 	if is_valid then
 		GenerateExploitReconnectScript(computer, result, mLib, mem_addr, exploit, target_ip)
 	end if
-
-	PrintExploitDetails(target_ip, mem_addr, exploit, globals.opt_var, mLib)
+	PrintExploitDetails(target_ip, mem_addr, exploit, globals.exploit_data.rootPass, mLib)
 end function
 
 PrintExploitDetails = function(ip, addr, exploit, password, mLib)
 	print("\n" + COLOUR_YELLOW + "=== Exploit Details ===" + COLOUR_WHITE)
-	print("Target IP: " + ip)
+	print("Target IP: " + ip + ":" + globals.port_num)
 	print("Memory Address: " + addr)
 	print("Exploit: " + exploit)
-	print("Password: " + (password or "None set"))
+	print("Password: " + password)
 	print("Library: " + mLib.lib_name + " v" + mLib.version)
+	print("GeneratedOn: " + current_date)
 	print("====================" + "</color>\n")
 end function
-
+TrackFile = function(path, content, name = "")
+	newFile = new file_info
+	newFile.name = name
+	newFile.path = path
+	newFile.content = content
+	if(globals.exploit_data.files.indexOf(newFile) == null) then
+		// Add file info to exploit_data
+		globals.exploit_data.files.push(newFile)
+		return
+	end if
+	
+end function
 AddExploitDetailsToSaveEntry = function(computer, result, mLib, mem_addr, exploit, target_ip, is_valid, root_pass = null)
 	// Save exploit details to LOCAL file
 	status = "Attempting."
-
 	if is_valid then
 		status = "## Valid ##"
-	else if is_valid then
-		status = "Invalid"
 	end if
-
 	save_entry = ["Status: " + status,
 		"IP_Address: " + target_ip,
 		"Port: " + globals.port_num,
 		"Memory_Address: " + mem_addr,
 		"Exploit: " + exploit,
-		"MetaLib_Name: " + mLib.lib_name,
-		"MetaLib_Version: " + mLib.version,
+		"Library: " + mLib.lib_name + " v" + mLib.version,
 		"GeneratedOn: " + current_date]
-
-		if globals.curr_passContent then
-			save_entry.push("Passwords: " + globals.curr_passContent)
+		if globals.exploit_data.passContent then
+			save_entry.push("Passwords: " + globals.exploit_data.passContent)
 		end if
 		
 		if root_pass then
 			save_entry.push("[ROOT PASSWORD: " + root_pass + "]")
 		end if
-
+		if globals.exploit_data.files.len > 0 then
+			save_entry.push("Files: ")
+			for file in globals.exploit_data.files
+				save_entry.push("    " + file.path + " - " + file.content)
+			end for
+			save_entry.push("")
+		end if
 		save_entry = save_entry.join(char(10))
-
 		PushExploitLogMessage(save_entry)
 end function
-
 PushExploitLogMessage = function(message, useNewLine = true)
 	// Append to local creds file
 	creds_path = current_path + "/zenora_data/exploit_creds.txt"
 	computer = get_shell.host_computer
 	creds = computer.File(creds_path)
-
 	if not creds then
 		computer.touch(current_path + "/zenora_data", "exploit_creds.txt")
 	end if
-
 	if creds then
 		if(useNewLine) then
 			message = message + char(10)
@@ -1133,10 +1161,14 @@ PushExploitLogMessage = function(message, useNewLine = true)
 		creds.set_content(creds.get_content + char(10) + message)
 	end if
 end function
-
 GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, exploit, target_ip)
 	// Generate LOCAL reconnect script
-	script_content = [
+	script_content = ["// Zenora Tool - Reconnect Script",
+		"// Exploit: " + exploit,
+		"// Memory Address: " + mem_addr,
+		"// Target IP: " + target_ip,
+		"// GeneratedOn: " + current_date,
+		"",
 		"pkg = get_custom_object",
 		"",
 		"if not pkg.hasIndex(""metaxploit"") then",
@@ -1147,17 +1179,18 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 		"",
 		"shell = get_shell",
 		"if not shell then exit(""No shell"")",
-		"",
-		"target_ip = """ + target_ip + """",
-		"mem_addr = """ + mem_addr + """",
-		"exploit = """ + exploit + """",
-		"password = """ + (opt_var or "") + """",
-		"",
-		"net_session = metaxploit.net_use(""" + target_ip + """, " + globals.port_num + ")",
-		"metaLib = net_session.dump_lib",
-		"",
-		"result = metaLib.overflow(mem_addr, exploit, password)",
-		"if typeof(result) == ""shell"" then result.start_terminal",].join(char(10))
+		"	",
+		"	target_ip = """ + target_ip + """",
+		"	mem_addr = """ + mem_addr + """",
+		"	exploit = """ + exploit + """",
+		"	password = """ + opt_var + """",
+		"	",
+		"	net_session = metaxploit.net_use(""" + target_ip + """, " + globals.port_num + ")",
+		"	metaLib = net_session.dump_lib",
+		"	",
+		"	result = metaLib.overflow(mem_addr, exploit, password)",
+		"	print("" " + COLOUR_YELLOW + "To elevate to root: <b>sudo -s [" + globals.exploit_data.rootPass + "]</b></color>"")",
+		"	if typeof(result) == ""shell"" then result.start_terminal"]
 
 	// Save script locally
 	script_path = current_path + "/zenora_scripts/reconnect_" + mem_addr + ".src"
@@ -1166,7 +1199,7 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 		computer.touch(current_path + "/zenora_scripts", "reconnect_" + mem_addr + ".src")
 		script_file = computer.File(script_path)
 	end if
-	if script_file then script_file.set_content(script_content)
+	if script_file then script_file.set_content(script_content.join(char(10)))
 
 	get_shell.build(script_path, current_path + "/zenora_scripts", 1)
 end function
