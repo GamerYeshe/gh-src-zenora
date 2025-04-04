@@ -922,8 +922,10 @@ ExploitFile = function(file)
 			newFile.name = f.name
 			newFile.path = f.path
 			newFile.content = f.get_content
+
+			isLastFile = globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len-1
 			if (globals.exploit_data.files.indexOf(newFile) != null) then
-				PushExploitLogMessage("Already found this file: " + f.path + ", skipping...", globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len-1) // should add newline after bank line
+				PushExploitLogMessage("Already found this file: " + f.path + ", skipping...", isLastFile) // should add newline after bank line
 				InfoMessage("File already scanned: " + f.path + ", skipping...")
 				continue
 			end if
@@ -935,7 +937,7 @@ ExploitFile = function(file)
 				continue
 			end if
 			InfoMessage("Showing file contents...")
-			PushExploitLogMessage("Contents: " + f.get_content)
+			PushExploitLogMessage("Contents: " + f.get_content, isLastFile)
 			print(COLOUR_WHITE + "   -> </color>" + f.get_content)
 			TrackFile(f.path, f.get_content, f.name)
 		// if file is passwd
@@ -956,14 +958,14 @@ ExploitFile = function(file)
 			globals.exploit_data.passContent = pass_content
 			wait(1)
 			pass = GetPassword(pass_content[0].split(":"))
-			PushExploitLogMessage("Root password: <b>" + pass + "</b>")
+			PushExploitLogMessage("Root password: " + pass)
 			InfoMessage("Root password: <b>" + pass + "</b>")
 			globals.exploit_data.rootPass = pass
 			wait(2)
 		end if
 	end for
 	show_directory = RequestInput("Show File Structure? (y/n): ")
-	if show_directory.lower == "y" then ListTree(file)
+	if show_directory.lower == "y" then ListTree(file, true)
 end function
 
 // ScanMetalib - Scans metalib and returns a list[map] -> [ {"memory": str, "unsecValue": str} ]
@@ -1021,14 +1023,17 @@ BeginHack = function(mLib)
 		globals.exploit_data.memAddress = mem_addr
 		result = null
 		if globals.opt_var == null then
+			PushExploitLogMessage("Attempting overflow.", false)
 			InfoMessage("Attempting overflow.")
 			result = mLib.overflow(mem_addr, unsecValue)
 			if not result and is_lan_ip(globals.ip_addr) then
+				PushExploitLogMessage("Attempting overflow on Local IP")
 				InfoMessage("Attempting overflow on Local IP")
 				// If result fails try with same local ip in overflow
 				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
 			end if
 		else
+			PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] with optional value.", false)
 			InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] with optional value.")
 			result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
 			if result then
@@ -1040,11 +1045,13 @@ BeginHack = function(mLib)
 					wait(2)
 				end if
 			else
+				PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "]")
 				InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "]")
 				result = mLib.overflow(mem_addr, unsecValue)
 			end if
 		end if
 		if not result then
+			PushExploitLogMessage("-- Attack unsuccessful --")
 			ErrorMessage("Attack unsuccessful!")
 			wait(0.2)
 			continue
@@ -1129,14 +1136,14 @@ AddExploitDetailsToSaveEntry = function(computer, result, mLib, mem_addr, exploi
 		"Exploit: " + exploit,
 		"Library: " + mLib.lib_name + " v" + mLib.version,
 		"GeneratedOn: " + current_date]
-		if globals.exploit_data.passContent then
+		if is_valid and globals.exploit_data.passContent then
 			save_entry.push("Passwords: " + globals.exploit_data.passContent)
 		end if
 		
 		if root_pass then
 			save_entry.push("[ROOT PASSWORD: " + root_pass + "]")
 		end if
-		if globals.exploit_data.files.len > 0 then
+		if is_valid and globals.exploit_data.files.len > 0 then
 			save_entry.push("Files: ")
 			for file in globals.exploit_data.files
 				save_entry.push("    " + file.path + " - " + file.content)
@@ -1188,9 +1195,15 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 		"	net_session = metaxploit.net_use(""" + target_ip + """, " + globals.port_num + ")",
 		"	metaLib = net_session.dump_lib",
 		"	",
-		"	result = metaLib.overflow(mem_addr, exploit, password)",
-		"	print("" " + COLOUR_YELLOW + "To elevate to root: <b>sudo -s [" + globals.exploit_data.rootPass + "]</b></color>"")",
-		"	if typeof(result) == ""shell"" then result.start_terminal"]
+		"	result = metaLib.overflow(mem_addr, exploit, password)"]
+
+	if globals.exploit_data.rootPass then
+		script_content.push("		print("" " + COLOUR_YELLOW + "To elevate to root: <b>sudo -s [" + globals.exploit_data.rootPass + "]</b></color>"")")
+		else
+		script_content.push("		print("" " + COLOUR_ORANGE + "Root password not found. Try to elevate manually.</color>"")")
+	end if
+	
+	script_content.push("if typeof(result) == ""shell"" then result.start_terminal")
 
 	// Save script locally
 	script_path = current_path + "/zenora_scripts/reconnect_" + mem_addr + ".src"
@@ -1307,6 +1320,22 @@ ListTree = function(file, print_directory=true)
 		end for
 	end function
 	list_dir(file)
+
+	if print_directory then
+		PushExploitLogMessage("Listing files in " + file.path + " directory...", false)
+		PushExploitLogMessage("Total files: " + folders["files"].len + " - Total binaries: " + folders["binary"].len, true)
+		PushExploitLogMessage("Files:", false)
+		for f in folders["files"]
+			PushExploitLogMessage("   " + f.path + " - " + f.permissions.replace("-", "_"), false)
+		end for
+		PushExploitLogMessage("", false)
+		PushExploitLogMessage("Binaries:", false)
+		for f in folders["binary"]
+			PushExploitLogMessage("   " + f.path + " - " + f.permissions.replace("-", "_"), false)
+		end for
+		PushExploitLogMessage("", false)
+	end if
+	
 	return folders
 end function
 
