@@ -1016,20 +1016,20 @@ BeginHack = function(mLib)
 				ExploitShell(result)
 				
 				// Prompt user for next action
-				print("\n" + COLOUR_GREEN + "<b>SUCCESS! Gained shell access.</b></color>")
-				print(COLOUR_WHITE + "1) Start terminal now")
-				print("2) Save & return to main menu")
-				print("3) Exit program</color>")
+				// print("\n" + COLOUR_GREEN + "<b>SUCCESS! Gained shell access.</b></color>")
+				// print(COLOUR_WHITE + "1) Start terminal now")
+				// print("2) Save & return to main menu")
+				// print("3) Exit program</color>")
 				
-				choice = RequestInput("Choose action (1-3): ")
-				if choice == "1" then
-					result.start_terminal
-					exit
-				else if choice == "2" then
-					MainMenu()
-				else
-					exit
-				end if
+				// choice = RequestInput("Choose action (1-3): ")
+				// if choice == "1" then
+					// result.start_terminal
+					// exit
+				// else if choice == "2" then
+					// MainMenu()
+				// else
+					// exit
+				// end if
 			// Computer
 			else if typeof(result) == "computer" then
 				ExploitComputer(result)
@@ -1054,6 +1054,8 @@ end function
 HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip, is_err)
 	computer = get_shell.host_computer
 	
+	if not target_ip or not is_valid_ip(target_ip) then target_ip == computer.local_ip // if not target_ip or not valid then use computers local_ip
+
 	// Save exploit details to LOCAL file
 	save_entry = [
 		"HasError: " + is_err,
