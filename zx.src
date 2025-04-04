@@ -1180,8 +1180,12 @@ PushExploitLogMessage = function(message, useNewLine = true)
 end function
 
 GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, exploit, target_ip)
-	ip_dir = current_path + "/zenora_scripts/" + target_ip
-	if not computer.File(ip_dir) then computer.create_folder(current_path + "/zenora_scripts/", target_ip)
+	if is_lan_ip(target_ip) then
+		ip_dir = computer.get_name + "-" + target_ip
+	else
+		ip_dir = target_ip
+	end if
+	if not computer.File(current_path + "/zenora_scripts/" + ip_dir) then computer.create_folder(current_path + "/zenora_scripts/", ip_dir)
 	// Generate LOCAL reconnect script
 	script_content = ["// Zenora Tool - Reconnect Script",
 		"// Exploit: " + exploit,
@@ -1219,15 +1223,15 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 	script_content.push("if typeof(result) == ""shell"" then result.start_terminal")
 
 	// Save script locally
-	script_path = current_path + "/zenora_scripts/" + target_ip + "/reconnect_" + mem_addr + ".src"
+	script_path = current_path + "/zenora_scripts/" + ip_dir + "/reconnect_" + mem_addr + ".src"
 	script_file = computer.File(script_path)
 	if not script_file then
-		computer.touch(current_path + "/zenora_scripts/" + target_ip, "reconnect_" + mem_addr + ".src")
+		computer.touch(current_path + "/zenora_scripts/" + ip_dir, "reconnect_" + mem_addr + ".src")
 		script_file = computer.File(script_path)
 	end if
 	if script_file then script_file.set_content(script_content.join(char(10)))
 
-	get_shell.build(script_path, current_path + "/zenora_scripts/" + target_ip, 1)
+	get_shell.build(script_path, current_path + "/zenora_scripts/" + ip_dir, 1)
 end function
 
 MainMenu = function() // MAIN MENU - FIRST MENU
