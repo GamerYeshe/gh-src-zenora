@@ -22,7 +22,7 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "3.12"
+version_number = "3.2.1"
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
@@ -846,7 +846,14 @@ HackManagementMenu = function()
 			UploadHack()
 		// Remove Hacks (Local)
 		else if index == "2" then
-			RemoveHack()
+			confirm_input = RequestInput("Are you sure you want to remove many files from local machine? (y/n)") // Confirm incase of accident (yep, it happened twice)
+			if confirm_input.lower == "y" then
+				RemoveHack()
+			else if confirm_input.lower == "n" then
+				HackManagementMenu()
+			else
+				continue
+			end if
 		// Remove Hacks (Remote)
 		else if index == "3" then
 			RemoveHack(true)
@@ -854,7 +861,7 @@ HackManagementMenu = function()
 		else if index == "4" then
 			MainMenu()
 		// Exit Program
-		else if index== "0" then
+		else if index == "0" then
 			exit
 		end if
 	end while
