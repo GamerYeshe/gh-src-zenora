@@ -48,6 +48,7 @@ ip_addr = null
 port_num = null
 opt_var = null
 metaLib = null
+is_command = false
 file_info = {
 	"name": null,
 	"path": null,
@@ -58,6 +59,7 @@ exploit_data = {
 	"rootPass": null, 
 	"passContent": null, 
 	"files": []}
+
 pkg = get_custom_object
 comp = get_shell.host_computer.File("/")
 
@@ -236,9 +238,7 @@ WifiCrack = function()
 	end if
 	print(COLOUR_YELLOW + "<b>-- Aircrack started --</b></color>")
 	cap = host_comp.File(current_path+"/file.cap")
-	if cap then
-	cap.delete
-	end if
+	if cap then cap.delete
 	InfoMessage("Monitoring has stopped...")
 	cryptools.airmon("stop", interface)
 	check = false
@@ -259,13 +259,11 @@ WifiCrack = function()
 	end while
 end function
 
-NMAP = function(target_ip, shortcut) // shortcut is optional, called from using zx -n <ip>
+NMAP = function(target_ip)
 	if not get_shell.host_computer.is_network_active then
-		if shortcut then
-			exit(ErrorMessage("No connection to the internet."))
-		else
-			MainMenu()
-		end if
+		ErrorMessage("No connection to the internet.")
+		wait(2)
+		MainMenu()
 	end if
 	router = null
 	ports = null
@@ -279,18 +277,14 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 			ports = router.used_ports
 		end if
 		if router == null then
-			if shortcut then
-				exit(ErrorMessage("Target IP address not found. Null router."))
-			else
-				MainMenu()
-			end if
+			ErrorMessage("Target IP address not found. Null router.")
+			wait(2)
+			MainMenu()
 		end if
 		if typeof(ports) == "string" then
-			if shortcut then
-				exit(ErrorMessage("An error occured with port return: [" + ports + "]"))
-			else
-				MainMenu()
-			end if
+			ErrorMessage("An error occured with port return: [" + ports + "]")
+			wait(2)
+			MainMenu()
 		end if
 		if ports then
 			info = COLOUR_PURPLE + "PORT STATE SERVICE VERSION LAN"
@@ -501,7 +495,10 @@ DisplayMenu = function(title, options)
 end function
 
 // LOG CLEARING MENU
-LogsMenu = function() 
+LogsMenu = function()
+	if is_command then
+		exit
+	end if
 	while true
 		clear_screen
 		options = ["Clear Logs (Remote SSH/FTP - Credentials Required)", "Clear Logs (Local)", "Main Menu", {0: "Exit Program"}]
@@ -829,6 +826,9 @@ RetrieveBankMail = function(is_remote)
 end function
 
 HackManagementMenu = function()
+	if is_command then
+		exit
+	end if
 	while true
 		clear_screen
 		options = ["Upload Hacks (Remote SSH/FTP - Credentials Required)"]
@@ -867,6 +867,9 @@ HackManagementMenu = function()
 end function
 
 BankMailManagementMenu = function()
+	if is_command then
+		exit
+	end if
 	while true
 		clear_screen
 		options = ["Retrieve Bank & Mail (Remote SSH/FTP - Credentials Required)"]
@@ -915,39 +918,51 @@ DecipherHash = function(hash)
 			if not file.has_permission("r") then
 				ErrorMessage("You are not unauthorized to access file <b>" + decipher_hash + "</b>. Permission denied.")
 				wait(2)
+				MainMenu()
 			end if
 			if file.is_binary then
 				ErrorMessage("Unable to read <b>" + decipher_hash + "</b> binary file.")
 				wait(2)
+				MainMenu()
 			end if
 			if file.get_content.len == 0 then
 				ErrorMessage("File <b>" + decipher_hash + "</b> is empty.")
 				wait(2)
+				MainMenu()
 			end if
 			lines = file.get_content.split("\n")
-		else if decipher_hash.len > 33 then
+		else if decipher_hash.len > 31 then
 			lines = [decipher_hash]
 		else
-			ErrorMessage("Cannot find decipher input: <b>" + decipher_hash + "</b>")
+			ErrorMessage("File not found or incorrect hash.")
 			wait(2)
+			MainMenu()
 		end if
-		for line in lines
-			userPass = line.split(":")
-			password = GetPassword(userPass)
-			if not password then
-				ErrorMessage("Password not found.")
-				wait(2)
-			else
-				print(password)
-				wait(2)
-				ContinueProgram()
-			end if
-		end for
+		if lines != null then
+			for line in lines
+				file_info = line.split(":")
+				if file_info[1].len == 32 then
+					password = GetPassword(file_info)
+					if not password then
+						ErrorMessage("Password not found.")
+						wait(2)
+					else
+						print(file_info[0])
+						print(password)
+					end if
+				else
+					ErrorMessage("Incorrect hash!")
+					wait(0.5)
+					continue
+				end if
+			end for
+			ContinueProgram()
+		end if
 	else
 		ErrorMessage("You must enter a decipher file or hash in pass format!")
 		wait(2)
+		MainMenu()
 	end if
-	MainMenu()
 end function
 
 // meta = include_lib(path_to_metaxploit.so)
@@ -1162,6 +1177,7 @@ ResetGlobals = function()
 	globals.exploit_data.passContent = null
 	globals.exploit_data.files = []
 	globals.metaLib = null
+	globals.is_command = false
 	globals.comp = get_shell.host_computer.File("/")
 end function
 
@@ -1356,6 +1372,9 @@ GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_
 end function
 
 MainMenu = function() // MAIN MENU - FIRST MENU
+	if is_command then
+		exit
+	end if
 	while true
 		clear_screen
 		options  =  ["Remote & Local Hack"]
@@ -1417,6 +1436,9 @@ MainMenu = function() // MAIN MENU - FIRST MENU
 end function
 
 ContinueProgram = function() // Continue? y = Go back to main menu - n = Quit program (y and n are case insensitive)
+	if is_command then
+		exit
+	end if
 	continue_input = RequestInput("Continue to Main Menu? y/n")
 	if continue_input.lower == "y" then
 		MainMenu()
@@ -1478,6 +1500,7 @@ ListTree = function(file, print_directory=true)
 end function
 
 if params.len > 0 then
+	is_command = true
 	if params[0] == "-h" then // Help option - lists shortcut commands
 		InfoMessage(program_path.split("/")[-1] + " -l <optional: path> - List directory")
 		InfoMessage(program_path.split("/")[-1] + " -n <target ip> - Show NMAP")
@@ -1510,11 +1533,10 @@ if params.len > 0 then
 			ListTree(current)
 			ContinueProgram()
 		end if
-	else if params[0] == "-n" then // NMAP shortcut
+	else if params[0] == "-n" then // NMAP
 		if params.len > 1 then
 			if is_valid_ip(params[1]) then
-				shortcut = true
-				NMAP(params[1], shortcut)
+				NMAP(params[1])
 			else
 				ErrorMessage("You have entered an invalid target IP address.")
 				exit
@@ -1535,7 +1557,8 @@ if params.len > 0 then
 			exit
 		end if
 	else if params[0] == "-v" or params[0] == "--version" then
-		exit(program_path.split("/")[-1]+" v" + version_number)
+		InfoMessage("Zenora - v" + version_number)
+		exit
 	else
 		ErrorMessage("That command is not recognized!")
 		exit
@@ -1543,6 +1566,10 @@ if params.len > 0 then
 end if
 
 if main_input == null then
-	MainMenu()
+	if not is_command then
+		MainMenu()
+	else
+		exit
+	end if
 end if
 
