@@ -20,11 +20,342 @@ COLOUR_YELLOW = "<color=#f1ef31>"
 PORT_FTP = 21
 PORT_SSH = 22
 
-version_number = "3.2.1"
+version_number = "3.3"
+
+// Import required libraries
+pkg = get_custom_object
+if not pkg.hasIndex("crypto") then
+	crypto = include_lib("/lib/crypto.so")
+	if not crypto then crypto = include_lib(current_path + "/crypto.so")
+	if not crypto then
+		print(COLOUR_RED + "Error: Cannot find crypto library. Please ensure crypto.so is in the lib folder or current directory.</color>")
+		exit
+	end if
+else
+	crypto = pkg.crypto
+end if
+
+// Access Control System
+DEVELOPER_KEYS = [] // Will store valid developer keys
+SALT_KEY = "ZenoraX" // Salt for password encryption
+
+// Initialize global authentication state
+if not globals.hasIndex("is_authenticated") then globals.is_authenticated = false
+
+// Add this near the top with other globals
+CONFIG_DEFAULT = {
+    "password": "",
+    "retry_count": "0"}
+
+// Add these helper functions for retry count obfuscation
+EncodeRetryCount = function(count)
+    // Convert count to a complex string that looks like a hash
+    base = "attempt_verification_" + str(count) + "_sequence"
+    return CustomHash(base)
+end function
+
+DecodeRetryCount = function(encoded)
+    if not encoded then return 0
+    // Known hashes for 0-3 attempts
+    known_hashes = {}
+    for i in range(0, 3)
+        known_hashes[EncodeRetryCount(i)] = i
+    end for
+    if known_hashes.hasIndex(encoded) then
+        return known_hashes[encoded]
+    end if
+    return 0
+end function
+
+SaveConfig = function(config_data)
+    computer = get_shell.host_computer
+    // Encode retry count as a hash
+    retry_hash = EncodeRetryCount(config_data.retry_count.to_int)
+    // Format the config data as password:retry_hash
+    config_str = config_data.password + ":" + retry_hash
+    config_file = computer.File(current_path + "/cnf.zx")
+    if not config_file then
+        computer.touch(current_path, "cnf.zx")
+        config_file = computer.File(current_path + "/cnf.zx")
+    end if
+    config_file.set_content(config_str)
+end function
+
+LoadConfig = function()
+    computer = get_shell.host_computer
+    config_file = computer.File(current_path + "/cnf.zx")
+    if not config_file then return CONFIG_DEFAULT
+    
+    encrypted = config_file.get_content
+    if not encrypted then return CONFIG_DEFAULT
+    
+    decrypted = {}
+    parts = encrypted.split(":")
+    if parts.len >= 2 then
+        decrypted.password = parts[0]
+        // Decode the retry hash back to a count
+        decrypted.retry_count = str(DecodeRetryCount(parts[1]))
+        return decrypted
+    end if
+    
+    return CONFIG_DEFAULT
+end function
+
+GetOwnerHash = function()
+	computer = get_shell.host_computer
+	passwd_file = computer.File("/etc/passwd")
+	if not passwd_file or not passwd_file.has_permission("r") then return null
+	
+	owner_line = passwd_file.get_content.split("\n")[0]
+	if not owner_line then return null
+	
+	parts = owner_line.split(":")
+	if parts.len < 2 then return null
+	
+	return parts[1]
+end function
+
+// Custom encryption/decryption functions
+CustomEncrypt = function(text)
+    if not text then return null
+    // Add salt and use double hashing for better security
+    salted = text + SALT_KEY
+    hash1 = crypto.md5(salted)
+    hash2 = crypto.hash(salted)
+    return hash1 + ":" + hash2
+end function
+
+CustomDecrypt = function(encrypted)
+    if not encrypted then return null
+    // Since we're using a one-way hash, we can only verify, not decrypt
+    // This is a placeholder that always returns null
+    return null
+end function
+
+CustomHash = function(text)
+    if not text then return null
+    
+    // Get user and computer specific information
+    computer = get_shell.host_computer
+    user_salt = computer.get_name + active_user + computer.local_ip
+    
+    // Add user-specific salt to the text
+    salted_text = text + user_salt
+    
+    // Initialize hash value
+    hash = 0
+    
+    // Process each character
+    for i in range(0, salted_text.len-1)
+        // Get character code and position-based multiplier
+        char_code = salted_text[i].code
+        multiplier = (i + 1) * 31
+        
+        // Add to hash with position-based weighting
+        hash = hash + (char_code * multiplier)
+        
+        // Ensure we stay within reasonable number size
+        hash = hash % 999999999
+    end for
+    
+    // Convert to hex string for consistent format
+    result = ""
+    hex = "0123456789abcdef"
+    temp = hash
+    while temp > 0
+        result = hex[temp % 16] + result
+        temp = floor(temp / 16)
+    end while
+    
+    // Pad with zeros if needed
+    while result.len < 8
+        result = "0" + result
+    end while
+    
+    return result
+end function
+
+HashPassword = function(password, owner_hash)
+    if not password or not owner_hash then return null
+    // Create a unique salt using owner_hash and our SALT_KEY
+    unique_salt = owner_hash + SALT_KEY
+    
+    // Hash the password multiple times with different salts
+    hash1 = CustomHash(password + unique_salt)
+    hash2 = CustomHash(hash1 + SALT_KEY)
+    final_hash = CustomHash(hash2 + owner_hash)
+    
+    return final_hash
+end function
+
+EncryptPassword = function(password)
+    // Get owner's hash
+    owner_hash = GetOwnerHash()
+    if not owner_hash then 
+        print(COLOUR_RED + "Error: Could not get owner's password hash. Access control may be compromised.</color>")
+        exit
+    end if
+    
+    // Hash the password with owner_hash as additional salt
+    return HashPassword(password, owner_hash)
+end function
+
+DecryptPassword = function(encrypted)
+    // Since we're using a one-way hash, we can't decrypt
+    // This function is kept for compatibility
+    return null
+end function
+
+CleanupZX = function()
+    computer = get_shell.host_computer
+    // Delete config file
+    config = computer.File(current_path + "/cnf.zx")
+    if config then config.delete
+    
+    // Delete all ZX related directories and their contents
+    files = computer.File(current_path).get_files + computer.File(current_path).get_folders
+    for file in files
+        if file.is_folder then
+            // Check if folder contains exploit_log or reconnect scripts
+            if file.get_files.len > 0 and file.get_files[0].name.indexOf("exploit_log") != null then
+                file.delete
+            end if
+        else if file.path.indexOf(".zx") != null or file.path.indexOf("zx_") != null then
+            file.delete
+        end if
+    end for
+    
+    print(COLOUR_RED + "\nAccess violation. Cleaning up...</color>")
+    wait(1)
+    
+    // Delete the zx executable itself last
+    program = computer.File(program_path)
+    if program then program.delete
+    
+    exit
+end function
+
+CheckFirstRun = function()
+    computer = get_shell.host_computer
+    config = LoadConfig()
+    
+    // Show setup if no config file or if there's no password set
+    if not computer.File(current_path + "/cnf.zx") or not config.password then
+        clear_screen
+        ascii_art = ["@#$%&*> @#   #$ ",
+                    "   x@     £# ¢#  ",
+                    "  ¤#       #@#   ",
+                    " @#       #¢ ¥#  ",
+                    "M$&%#@   ¢#   #@ "]
+        
+        for line in ascii_art
+            print(COLOUR_PURPLE + line + "</color>")
+        end for
+        
+        attempts = config.retry_count.to_int()
+        while attempts < 3
+            print(char(10) + COLOUR_BLUE + "Enter master key to continue:")
+            master_key = user_input(COLOUR_ORANGE + "Key> ")
+            
+            // Verify master key
+            if master_key != "ZENORA_DEV_2024" then
+                attempts = attempts + 1
+                config = {"password": "", "retry_count": str(attempts)}
+                SaveConfig(config)
+                if attempts >= 3 then
+                    CleanupZX()
+                end if
+                print(COLOUR_RED + "Access denied.</color>")
+                wait(2)
+                continue
+            end if
+            
+            // Master key correct, now set up access key
+            print(COLOUR_WHITE + "\nSet access key:")
+            dev_password = user_input(COLOUR_ORANGE + "Key> ")
+            
+            if not dev_password then
+                print(COLOUR_RED + "No key provided.</color>")
+                wait(2)
+                continue
+            end if
+            
+            // Save encrypted password and reset retry count
+            encrypted = EncryptPassword(dev_password)
+            if encrypted then
+                config = {"password": encrypted, "retry_count": "0"}
+                SaveConfig(config)
+                print(COLOUR_GREEN + "\nAccess key set successfully.</color>")
+                globals.is_authenticated = true
+                wait(1)
+                clear_screen
+                return
+            end if
+            break
+        end while
+    end if
+end function
+
+VerifyPassword = function(stored_hash, input_password)
+    // For password verification, we need to hash the input the same way
+    owner_hash = GetOwnerHash()
+    if not owner_hash then
+        ErrorMessage("Could not get owner hash for verification!")
+        wait(2)
+        return false
+    end if
+    
+    // Hash the input password and compare
+    input_hash = HashPassword(input_password, owner_hash)
+    return input_hash == stored_hash
+end function
+
+VerifyDeveloperKey = function(key)
+    config = LoadConfig()
+    if not config.password then return false
+    return VerifyPassword(config.password, key)
+end function
+
+RequestAccess = function()
+    // If already authenticated this session, skip the check
+    if globals.is_authenticated then return true
+    
+    config = LoadConfig()
+    attempts = config.retry_count.to_int()
+    while attempts < 3
+        clear_screen
+        print(COLOUR_YELLOW + "<b>-- Access Control --</b></color>")
+        print(COLOUR_WHITE + "Please enter your access key:")
+        key = user_input(COLOUR_ORANGE + "Key> ")
+        
+        if VerifyDeveloperKey(key) then
+            // Reset retry count on successful login
+            config.retry_count = "0"
+            SaveConfig(config)
+            print(COLOUR_GREEN + "Access granted.</color>")
+            wait(1)
+            globals.is_authenticated = true
+            return true
+        else
+            attempts = attempts + 1
+            config.retry_count = str(attempts)
+            SaveConfig(config)
+            if attempts >= 3 then
+                CleanupZX()
+            end if
+            print(COLOUR_RED + "Invalid key.</color>")
+            wait(2)
+        end if
+    end while
+end function
 
 ErrorMessage = function(message, ext=false) // ext == true | exit the program
 	print(COLOUR_RED + "Error: "+ COLOUR_WHITE + message + "</color>")
 	if ext then exit()
+end function
+
+WarningMessage = function(message)
+	print(COLOUR_ORANGE + "Warning: "+ COLOUR_WHITE + message + "</color>")
 end function
 
 InfoMessage = function(message)
@@ -665,6 +996,35 @@ RemoteLocalHack = function()
 				globals.opt_var = null
 			end if
 		end if
+
+		// Create IP-specific directory as soon as we have the IP
+		computer = get_shell.host_computer
+		ip_dir = null
+		if is_lan_ip(globals.ip_addr) then
+			ip_dir = computer.get_name + "-" + globals.ip_addr
+		else
+			ip_dir = globals.ip_addr
+		end if
+		
+		// Create main IP directory
+		if not computer.File(current_path + "/" + ip_dir) then
+			computer.create_folder(current_path, ip_dir)
+		end if
+
+		// Log hack start with details
+		PushExploitLogMessage("", false)
+		PushExploitLogMessage("Begin hack attempt...")
+		PushExploitLogMessage("Config:", false)
+		PushExploitLogMessage("Target IP: " + globals.ip_addr, false)
+		if globals.opt_var then
+			if is_lan_ip(globals.opt_var) then
+				PushExploitLogMessage("Target LAN IP: " + globals.opt_var, false)
+			else
+				PushExploitLogMessage("Optional Password: " + globals.opt_var, false)
+			end if
+		end if
+		PushExploitLogMessage("Port: " + globals.port_num, true)
+
 		if metaLib then
 			BeginHack(metaLib)
 		else
@@ -902,8 +1262,8 @@ GetPassword = function(userPass)
 		wait(2)
 		MainMenu()
 	end if
-	password = cryptools.decipher(userPass[1])
-	return password
+    // This is for decrypting root passwords during exploits
+    return crypto.decipher(userPass[1])
 end function
 
 DecipherHash = function(hash)
@@ -976,17 +1336,6 @@ end function
 ExploitShell = function(shell)
 	ExploitComputer(shell.host_computer)
 	HandleExploitResult(shell, globals.metaLib, globals.exploit_data.memAddress, globals.exploit_data.unsecValue, globals.ip_addr, true, globals.exploit_data.rootPass)
-	while true
-		terminal_input = RequestInput("Start terminal? (y/n)") // DO NOT SUBSTITUTE THIS FOR StartTerminal(), we need the separate "n" input for break;
-		if terminal_input.lower == "y" then
-			shell.start_terminal
-			ContinueProgram()
-		else if terminal_input.lower == "n" then
-			break
-		else
-			continue
-		end if
-	end while
 end function
 
 ExploitComputer = function(computer)
@@ -998,6 +1347,9 @@ ExploitComputer = function(computer)
 	PushExploitLogMessage(computerLogs.join(char(10)))
 	ExploitFile(computer.File("/"))
 end function
+
+// Add this at the top with other globals
+exploited_machines = []
 
 ExploitFile = function(file)
 	while file.name != "/"
@@ -1012,9 +1364,11 @@ ExploitFile = function(file)
 			newFile.path = f.path
 			newFile.content = f.get_content
 
-			isLastFile = globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len-1
+            // Calculate isLastFile before using it
+            isLastFile = globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len
+
 			if (globals.exploit_data.files.indexOf(newFile) != null) then
-				PushExploitLogMessage("Already found this file: " + f.path + ", skipping...", isLastFile) // should add newline after bank line
+                PushExploitLogMessage("Already found this file: " + f.path + ", skipping...", isLastFile)
 				InfoMessage("File already scanned: " + f.path + ", skipping...")
 				continue
 			end if
@@ -1025,9 +1379,11 @@ ExploitFile = function(file)
 				wait(1)
 				continue
 			end if
-			InfoMessage("Showing file contents...")
-			PushExploitLogMessage("Contents: " + f.get_content, isLastFile)
 			print(COLOUR_WHITE + "   -> </color>" + f.get_content)
+
+            isLastFile = globals.exploit_data.files.indexOf(newFile) == globals.exploit_data.files.len
+            PushExploitLogMessage("Contents: " + f.get_content, isLastFile)
+
 			TrackFile(f.path, f.get_content, f.name)
 		// if file is passwd
 		else if f.path == "/etc/passwd" then
@@ -1047,26 +1403,34 @@ ExploitFile = function(file)
 			globals.exploit_data.passContent = pass_content
 			wait(1)
 			pass = GetPassword(pass_content[0].split(":"))
-			PushExploitLogMessage("Root password: " + pass)
-			InfoMessage("Root password: <b>" + pass + "</b>")
+            PushExploitLogMessage("[ROOT PASSWORD] " + pass)
+            InfoMessage("[ROOT PASSWORD]: <b>" + pass + "</b>")
 			globals.exploit_data.rootPass = pass
 			wait(2)
 		end if
 	end for
-	show_directory = RequestInput("Show File Structure? (y/n): ")
-	if show_directory.lower == "y" then ListTree(file, true)
+
+    // Get machine identifier from the computer object
+    computer = get_shell.host_computer
+    machine_id = computer.get_name + "_" + computer.local_ip
+    
+    // Just track the machine, don't show file structure yet
+    if globals.exploited_machines.indexOf(machine_id) == null then
+        globals.exploited_machines.push(machine_id)
+    end if
 end function
 
 // ScanMetalib - Scans metalib and returns a list[map] -> [ {"memory": str, "unsecValue": str} ]
 ScanMetalib = function(mLib)
 	info = []
+	unscanned_zones = []
 	memories = metaxploit.scan(mLib)
 	for mem_addr in memories
 		vuln_strings = metaxploit.scan_address(mLib, mem_addr)
 		// Unable to get vulnerabilities
 		if not vuln_strings then
-			ErrorMessage("Failed to find vulnerabilities!")
-			wait(2)
+			unscanned_zones.push(mem_addr)
+			continue
 		end if
 		// Find the unsecure value (exploit)
 		for line in vuln_strings.split("\n")
@@ -1074,36 +1438,62 @@ ScanMetalib = function(mLib)
 			info.push({"memory": mem_addr, "unsecValue": line[line.indexOf("<b>")+3:line.indexOf("</b>")]})
 		end for
 	end for
+
+	// If we found unscanned zones, display them
+	if unscanned_zones.len > 0 then
+		msg = "One or more memory zones with possible vulnerabilities could not be scanned. Update your Metaxploit library"
+		msg = msg + char(10) + "Unscanned zones:"
+		for zone in unscanned_zones
+			msg = msg + char(10) + "[" + zone + "]"
+		end for
+		ErrorMessage(msg)
+		wait(2)
+	end if
+
 	return info
 end function
 
 BeginHack = function(mLib)
 	pass = false
-	save_dir = current_path + "/zenora_data/"  // Saves to YOUR current directory
-	creds_file = "exploit_creds.txt"
-	scripts_dir = current_path + "/zenora_scripts/"
+	computer = get_shell.host_computer
+
+	// Create IP-specific directory in current directory before starting scan
+	ip_dir = null
+	if is_lan_ip(globals.ip_addr) then
+		ip_dir = computer.get_name + "-" + globals.ip_addr
+	else
+		ip_dir = globals.ip_addr
+	end if
+	
+	// Create main IP directory
+	if not computer.File(current_path + "/" + ip_dir) then
+		computer.create_folder(current_path, ip_dir)
+	end if
 
 	print(COLOUR_YELLOW + "<b>-- Scan started --</b></color>")
 	print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
+	
+	// Log library scan start
+	PushExploitLogMessage("Starting library scan: " + mLib.lib_name + " v" + mLib.version)
+	
 	memories = ScanMetalib(mLib)
 	globals.metaLib = mLib
 
-	// Create local directories (on YOUR PC)
-	computer = get_shell.host_computer
-	if not computer.File(save_dir) then computer.create_folder(current_path, "zenora_data")
-	if not computer.File(scripts_dir) then computer.create_folder(current_path, "zenora_scripts")
-	// Initialize credentials file (local)
-	full_creds_path = save_dir + creds_file
-	creds = computer.File(full_creds_path)
-	if not creds then
-		computer.touch(save_dir, creds_file)
-		creds = computer.File(full_creds_path)
-		if not creds then
-			ErrorMessage("Failed to create credentials file locally!")
-			wait(0.5)
-			return
-		end if
+	// Log all found memory addresses and their unsecure values
+	if memories.len > 0 then
+		msg = "Found " + memories.len + " memory locations to exploit:"
+		for memory in memories
+			msg = msg + char(10) + "[" + memory.memory + "] -> " + memory.unsecValue
+		end for
+		PushExploitLogMessage(msg)
+		InfoMessage(COLOUR_YELLOW + msg + "</color>")
+	else
+		PushExploitLogMessage("No exploitable memory locations found")
+		print(COLOUR_RED + "No exploitable memory locations found</color>")
 	end if
+
+	// Track exploit results for summary
+	exploit_results = []
 
 	for memory in memories
 		mem_addr = memory.memory
@@ -1115,15 +1505,20 @@ BeginHack = function(mLib)
 			PushExploitLogMessage("Attempting overflow.", false)
 			InfoMessage("Attempting overflow.")
 			result = mLib.overflow(mem_addr, unsecValue)
-			if not result and is_lan_ip(globals.ip_addr) then
-				PushExploitLogMessage("Attempting overflow on Local IP")
-				InfoMessage("Attempting overflow on Local IP")
+			if not result then
+				PushExploitLogMessage("Failed..")
+			else if not result and is_lan_ip(globals.ip_addr) then
+				PushExploitLogMessage("Attempting overflow on Local IP", false)
+				InfoMessage(char(10) + "Attempting overflow on Local IP")
 				// If result fails try with same local ip in overflow
 				result = mLib.overflow(mem_addr, unsecValue, globals.ip_addr)
+				if not result then
+					PushExploitLogMessage("Failed..")
+				end if
 			end if
 		else
-			PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] with optional value.", false)
-			InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] with optional value.")
+			PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] " + unsecValue + " - with optional value: " + globals.opt_var, false)
+			InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] " + unsecValue + " - with optional value: " + globals.opt_var)
 			result = mLib.overflow(mem_addr, unsecValue, globals.opt_var)
 			if result then
 				if result and is_lan_ip(globals.opt_var) then
@@ -1134,19 +1529,47 @@ BeginHack = function(mLib)
 					wait(0.5)
 				end if
 			else
-				PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "]")
-				InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "]")
+				PushExploitLogMessage("Failed..")
+				PushExploitLogMessage("Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] " + unsecValue + " - ", false)
+				InfoMessage(char(10) + "Attempting overflow on " + globals.ip_addr + " [" + mem_addr + "] " + unsecValue)
 				result = mLib.overflow(mem_addr, unsecValue)
+				if not result then
+					PushExploitLogMessage("Failed..")
 			end if
 		end if
+		end if
+
+		// Track the result for summary
+		status = "Failed"
+		if result then
+			if typeof(result) == "shell" then
+				status = "Shell Access"
+				if globals.exploit_data.rootPass then
+					status = status + " (Root)"
+				end if
+			else if typeof(result) == "computer" then
+				status = "Computer Access"
+				if globals.exploit_data.rootPass then
+					status = status + " (Root)"
+				end if
+			else if typeof(result) == "file" then
+				status = "File Access"
+				if globals.exploit_data.rootPass then
+					status = status + " (Root)"
+				end if
+			end if
+		end if
+		exploit_results.push({"memory": mem_addr, "unsecValue": unsecValue, "status": status})
+
 		if not result then
 			PushExploitLogMessage("-- Attack unsuccessful --")
-			ErrorMessage("Attack unsuccessful!")
+			WarningMessage("Exploit attempt failed.")
+			print()
 			wait(0.2)
 			continue
 		end if
 		useNewLine = memory
-		HandleExploitResult(result, mLib, mem_addr, unsecValue, globals.ip_addr, null)
+		HandleExploitResult(result, mLib, mem_addr, unsecValue, globals.ip_addr, true)
 		// Shell
 		if typeof(result) == "shell" then
 			ExploitShell(result)
@@ -1157,9 +1580,30 @@ BeginHack = function(mLib)
 		else if typeof(result) == "file" then
 			ExploitFile(result)
 		else
-			ErrorMessage("Unsupported object returned!")
+			ErrorMessage("Unsupported object returned!" + char(10))
 		end if
 		end for
+
+	// Show file structure for all exploited machines
+	print(COLOUR_YELLOW + "<b>-- File Structure Summary --</b></color>")
+	for machine_id in globals.exploited_machines
+		computer = get_shell.host_computer
+		PushExploitLogMessage("File structure for machine: " + machine_id)
+		print(COLOUR_WHITE + "Machine: " + machine_id + "</color>")
+		ListTree(computer.File("/"), true)
+	end for
+	print("")
+	// Display and log exploit summary
+	summary = "===Exploit Summary ==="
+	for result in exploit_results
+		summary = summary + char(10) + "[" + result.memory + "] [" + result.status + "] -> " + result.unsecValue
+	end for
+	if globals.exploit_data.rootPass then
+		summary = summary + char(10) + char(10) + "[ROOT PASSWORD: " + globals.exploit_data.rootPass + "]"
+	end if
+	PushExploitLogMessage(summary + char(10))
+	print(COLOUR_YELLOW + "<b>" + summary + "</b></color>")
+
 		ResetGlobals()
 		print(COLOUR_ORANGE + "Library: " + COLOUR_WHITE + mLib.lib_name + COLOUR_ORANGE + " - Version: " + COLOUR_WHITE + mLib.version + "</color>")
 		print(COLOUR_YELLOW + "<b>-- Scan finished --</b></color>")
@@ -1179,6 +1623,7 @@ ResetGlobals = function()
 	globals.metaLib = null
 	globals.is_command = false
 	globals.comp = get_shell.host_computer.File("/")
+	globals.exploited_machines = [] // Reset the exploited machines list
 end function
 
 HandleExploitResult = function(result, mLib, mem_addr, exploit, target_ip, is_valid, root_pass = null)
@@ -1228,7 +1673,8 @@ AddExploitDetailsToSaveEntry = function(computer, result, mLib, mem_addr, exploi
 	if is_valid then
 		status = "## Valid ##"
 	end if
-	save_entry = ["Status: " + status,
+	save_entry = ["",
+		"Status: " + status,
 		"IP_Address: " + target_ip,
 		"Port: " + globals.port_num,
 		"Memory_Address: " + mem_addr,
@@ -1254,29 +1700,68 @@ AddExploitDetailsToSaveEntry = function(computer, result, mLib, mem_addr, exploi
 end function
 
 PushExploitLogMessage = function(message, useNewLine = true)
-	// Append to local creds file
-	creds_path = current_path + "/zenora_data/exploit_creds.txt"
+    // Create IP-specific directory for logs
+    ip_dir = null
+    if is_lan_ip(globals.ip_addr) then
+        ip_dir = get_shell.host_computer.get_name + "-" + globals.ip_addr
+    else
+        ip_dir = globals.ip_addr
+    end if
+    
+    // Append to IP-specific log file
+    log_path = current_path + "/" + ip_dir + "/exploit_log.txt"
 	computer = get_shell.host_computer
-	creds = computer.File(creds_path)
-	if not creds then
-		computer.touch(current_path + "/zenora_data", "exploit_creds.txt")
+    log_file = computer.File(log_path)
+    if not log_file then
+        computer.touch(current_path + "/" + ip_dir, "exploit_log.txt")
+        wait(1)
 	end if
-	if creds then
+    if log_file then
 		if(useNewLine) then
 			message = message + char(10)
 		end if
-		creds.set_content(creds.get_content + char(10) + message)
+        log_file.set_content(log_file.get_content + char(10) + message)
 	end if
 end function
 
 GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, exploit, target_ip)
+	// Only generate reconnect script if we have a successful exploit
+	if typeof(result) != "shell" and typeof(result) != "computer" then
+		return
+	end if
+
 	ip_dir = null
 	if is_lan_ip(target_ip) then
 		ip_dir = computer.get_name + "-" + target_ip
 	else
 		ip_dir = target_ip
 	end if
-	if not computer.File(current_path + "/zenora_scripts/" + ip_dir) then computer.create_folder(current_path + "/zenora_scripts/", ip_dir)
+
+	// For local IP exploits, create a subfolder with the local IP
+	script_dir = current_path + "/" + ip_dir
+	if is_lan_ip(target_ip) and globals.opt_var and is_lan_ip(globals.opt_var) then
+		local_ip_dir = globals.opt_var
+		script_dir = script_dir + "/" + local_ip_dir
+		if not computer.File(script_dir) then
+			computer.create_folder(current_path + "/" + ip_dir, local_ip_dir)
+		end if
+	end if
+
+	// Create base name using memory address and unsecValue
+	base_name = mem_addr + "_" + exploit
+	
+	// If we have root access, create a special root reconnect file
+	if globals.exploit_data.rootPass then
+		// Create root reconnect name
+		base_name = "root_" + base_name
+	else
+		// Check if this exact exploit combination already exists
+		if computer.File(script_dir + "/" + base_name + ".src") or computer.File(script_dir + "/" + base_name) then
+			// If it exists, don't create another one
+			return
+		end if
+	end if
+
 	// Generate LOCAL reconnect script
 	script_content = ["// Zenora Tool - Reconnect Script",
 		"// Exploit: " + exploit,
@@ -1313,16 +1798,18 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 	
 	script_content.push("if typeof(result) == ""shell"" then result.start_terminal")
 
-	// Save script locally
-	script_path = current_path + "/zenora_scripts/" + ip_dir + "/reconnect_" + mem_addr + ".src"
+	// Save script locally with descriptive name
+	script_path = script_dir + "/" + base_name + ".src"
 	script_file = computer.File(script_path)
 	if not script_file then
-		computer.touch(current_path + "/zenora_scripts/" + ip_dir, "reconnect_" + mem_addr + ".src")
+		computer.touch(script_dir, base_name + ".src")
 		script_file = computer.File(script_path)
 	end if
 	if script_file then script_file.set_content(script_content.join(char(10)))
 
-	get_shell.build(script_path, current_path + "/zenora_scripts/" + ip_dir, 1)
+	// Build the script and delete the .src file
+	get_shell.build(script_path, script_dir, 1)
+	script_file.delete
 end function
 
 GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_name) // R-Shell trojan backdoor - Port 1222 is recommended
@@ -1482,7 +1969,7 @@ ListTree = function(file, print_directory=true)
 	list_dir(file)
 
 	if print_directory then
-		PushExploitLogMessage("Listing files in " + file.path + " directory...", false)
+		PushExploitLogMessage(char(10) + "Listing files in " + file.path + " directory...", false)
 		PushExploitLogMessage("Total files: " + folders["files"].len + " - Total binaries: " + folders["binary"].len, true)
 		PushExploitLogMessage("Files:", false)
 		for f in folders["files"]
@@ -1509,6 +1996,7 @@ if params.len > 0 then
 		InfoMessage(program_path.split("/")[-1] + " -v - Get current version")
 		exit
 	else if params[0] == "-l" then // ls shortcut
+		if not RequestAccess() then exit
 		if params.len > 1 then
 			input_path = get_shell.host_computer.File(params[1])
 			if input_path then
@@ -1534,6 +2022,7 @@ if params.len > 0 then
 			ContinueProgram()
 		end if
 	else if params[0] == "-n" then // NMAP
+		if not RequestAccess() then exit
 		if params.len > 1 then
 			if is_valid_ip(params[1]) then
 				NMAP(params[1])
@@ -1547,8 +2036,10 @@ if params.len > 0 then
 			exit
 		end if
 	else if params[0] == "-w" then // Wifi Cracking
+		if not RequestAccess() then exit
 		WifiCrack()
 	else if params[0] == "-d" then // Decipher
+		if not RequestAccess() then exit
 		if params.len > 1 then
 			DecipherHash(params[1])
 		else
@@ -1567,6 +2058,9 @@ end if
 
 if main_input == null then
 	if not is_command then
+        // Run first time setup before requesting access
+        CheckFirstRun()
+        if not RequestAccess() then exit
 		MainMenu()
 	else
 		exit
