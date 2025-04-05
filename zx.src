@@ -931,7 +931,7 @@ DecipherHash = function(hash)
 				MainMenu()
 			end if
 			lines = file.get_content.split("\n")
-		else if decipher_hash.len > 31 then
+		else if decipher_hash.len > 33 then
 			lines = [decipher_hash]
 		else
 			ErrorMessage("File not found or incorrect hash.")
