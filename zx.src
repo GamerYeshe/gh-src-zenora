@@ -342,7 +342,7 @@ end function
 
 ReverseShell = function()
 	gen_request = null
-	gen_input = RequestInput("Generate trojan script for target computer? (y/n) ")
+	gen_input = RequestInput("Generate trojan binary to run on victim computer? (y/n) ")
 	if gen_input.lower == "y" then
 		gen_request = true
 	else if gen_input.lower == "n" then
@@ -1284,7 +1284,7 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 	get_shell.build(script_path, current_path + "/zenora_scripts/" + ip_dir, 1)
 end function
 
-GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_name) // R-Shell port 1222 is best
+GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_name) // R-Shell trojan backdoor - Port 1222 is recommended
 	if not computer then
 		computer = get_shell.host_computer
 	end if
@@ -1318,7 +1318,7 @@ GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_
 		"metaxploit.rshell_client(rshell_ip, " + rshell_port + ", trojan_name)"]
 
 	// Save script locally
-	script_path = troj_dir + trojan_name + ".src"
+	script_path = current_path + "/zenora_scripts/" + trojan_name + ".src"
 	script_file = computer.File(script_path)
 	if not script_file then
 		computer.touch(troj_dir, trojan_name + ".src")
@@ -1326,7 +1326,8 @@ GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_
 	end if
 	if script_file then script_file.set_content(script_content.join(char(10)))
 
-	get_shell.build(script_path, troj_dir + trojan_name, 1)
+	get_shell.build(script_path, current_path + "/zenora_scripts/", 1)
+	script_file.delete
 end function
 
 MainMenu = function() // MAIN MENU - FIRST MENU
