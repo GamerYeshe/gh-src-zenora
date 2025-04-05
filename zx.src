@@ -683,12 +683,17 @@ RemoteLocalHack = function()
 	end if
 end function
 
-UploadResult = function(file, result)
+UploadResult = function(filename, result, shell, remote_shell)
 	if typeof(result) == "string" then
-		   ErrorMessage("There was an issue uploading the file " + file + " [" + result + "]")
-		wait(0.5)
+		result = shell.scp(filename, current_path + "/", remote_shell) // Retry at current_path folder instead of /lib, etc
+		if typeof(result) == "string" then
+			ErrorMessage("There was an issue uploading the file " + filename + " [" + result + "]")
+			wait(0.5)
+		else
+			UploadResult(filename, result, shell, remote_shell)
+		end if
 	else
-		InfoMessage("File " + file + " has been uploaded successfully.")
+		InfoMessage("File " + filename + " has been uploaded successfully.")
 		wait(0.5)
 	end if
 end function
@@ -699,37 +704,46 @@ UploadHack = function()
 	file = program_path
 	result = shell.scp(program_path, "/bin/", remote_shell)
 	wait(0.2)
-	UploadResult(file, result)
+	UploadResult(file, result, shell, remote_shell)
 	file = "/lib/crypto.so"
-	result = shell.scp("/lib/crypto.so", "/lib/", remote_shell)
+	result = shell.scp(file, "/lib/", remote_shell)
 	wait(0.2)
-	UploadResult(file, result)
+	UploadResult(file, result, shell, remote_shell)
 	file = "/lib/metaxploit.so"
-	result = shell.scp("/lib/metaxploit.so", "/lib/", remote_shell)
+	result = shell.scp(file, "/lib/", remote_shell)
 	wait(0.2)
-	UploadResult(file, result)
+	UploadResult(file, result, shell, remote_shell)
 	file = "/usr/bin/ScanLan.exe"
-	result = shell.scp("/usr/bin/ScanLan.exe", "/usr/bin/", remote_shell)
+	result = shell.scp(file, "/usr/bin/", remote_shell)
 	wait(0.2)
-	UploadResult(file, result)
+	UploadResult(file, result, shell, remote_shell)
+	file = "/usr/bin/ScanLan.exe"
+	result = shell.scp(file, "/usr/bin/", remote_shell)
+	wait(0.2)
+	UploadResult(file, result, shell, remote_shell)
 	ClearLogs(remote_shell)
 	StartTerminal(remote_shell)
 	ContinueProgram()
 end function
 
-RemoveResult = function(file, result)
+RemoveResult = function(filename, result, shell)
 	if result then
-		   if result.has_permission("r") then
+		if result.has_permission("r") then
 			result.delete
-			InfoMessage("File " + file + " has been removed successfully.")
+			InfoMessage("File " + filename + " has been removed successfully.")
 			wait(0.5)
 		else
-			ErrorMessage("You are not authorized to access file " + file + ". Permission denied.")
+			ErrorMessage("You are not authorized to access file " + filename + ". Permission denied.")
 			wait(0.5)
 		end if
 	else
-		ErrorMessage("There was an error removing file " + file + ". Does it exist?")
-		wait(0.5)
+		result = shell.host_computer.File(current_path + "/" + filename) // Retry at current_path folder instead of /lib, etc
+		if result then
+			RemoveResult(filename, result)
+		else
+			ErrorMessage("There was an error removing file " + filename + ". Does it exist?")
+			wait(0.5)
+		end if
 	end if
 end function
 
@@ -741,21 +755,26 @@ RemoveHack = function(is_remote)
 	end if
 	file = program_path
 	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
+	RemoveResult(file, result, shell)
 	file = "/lib/crypto.so"
 	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
+	RemoveResult(file, result, shell)
 	file = "/lib/metaxploit.so"
 	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
+	RemoveResult(file, result, shell)
 	file = "/usr/bin/ScanLan.exe"
 	result = shell.host_computer.File(file)
-	RemoveResult(file, result)
+	RemoveResult(file, result, shell)
+	file = current_path + "/zenora_data/" 
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result, shell)
+	file = current_path + "/zenora_scripts/" 
+	result = shell.host_computer.File(file)
+	RemoveResult(file, result, shell)
 	ClearLogs(shell)
 	if is_remote then
 		StartTerminal(shell)
 	end if
-	is_remote = false
 	ContinueProgram()
 end function
 
