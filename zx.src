@@ -341,6 +341,55 @@ NMAP = function(target_ip, shortcut) // shortcut is optional, called from using 
 end function
 
 ReverseShell = function()
+	gen_request = null
+	gen_input = RequestInput("Generate trojan script for target computer? (y/n) ")
+	if gen_input.lower == "y" then
+		gen_request = true
+	else if gen_input.lower == "n" then
+	else
+		ReverseShell()
+	end if
+	if gen_request then
+		ip_input = RequestInput("Your R-Shell Server IP: ")
+		if ip_input then
+			if is_valid_ip(ip_input) then
+				port_input = RequestInput("Your R-Shell Server Port: ")
+				port_input = port_input.to_int
+				if port_input != null then
+					if typeof(port_input) == "number" then
+						troj_input = RequestInput("Enter Trojan Process Name: ")
+						if troj_input then
+							computer = get_shell.host_computer
+							GenerateExploitTrojanScript(computer, ip_input, port_input, troj_input)
+							InfoMessage("Trojan script created and saved at " + current_path + "/zenora_scripts/" + troj_input)
+							wait(2)
+						else
+							ErrorMessage("You must enter a name for the trojan script and process!")
+							wait(2)
+							MainMenu()
+						end if
+					else
+						ErrorMessage("You must enter a valid number for port!")
+						wait(2)
+						MainMenu()
+					end if
+				else
+					ErrorMessage("Port null value received. Try again.")
+					wait(2)
+					MainMenu()
+				end if
+			else
+				ErrorMessage("You have entered an invalid IP address.")
+				wait(2)
+				MainMenu()
+			end if
+		else
+			ErrorMessage("You have not entered an R-Shell IP address.")
+			wait(2)
+			MainMenu()
+		end if
+	end if
+
 	clear_screen
 	print(COLOUR_WHITE + "<b>[--# " + COLOUR_YELLOW + "R-Shell Interface" + COLOUR_WHITE + " #--]</b></color>") // Title of the function
 	
@@ -1180,6 +1229,7 @@ PushExploitLogMessage = function(message, useNewLine = true)
 end function
 
 GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, exploit, target_ip)
+	ip_dir = null
 	if is_lan_ip(target_ip) then
 		ip_dir = computer.get_name + "-" + target_ip
 	else
@@ -1198,7 +1248,7 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 		"if not pkg.hasIndex(""metaxploit"") then",
 		"	metaxploit = include_lib(""/lib/metaxploit.so"")",
 		"	if not metaxploit then metaxploit = include_lib(current_path + ""/metaxploit.so"")",
-		"	if not metaxploit then ErrorMessage(""Cannot find metaxploit library in lib or current path folder."", true)",
+		"	if not metaxploit then exit(""Cannot find metaxploit library in lib or current path folder."")",
 		"end if",
 		"",
 		"shell = get_shell",
@@ -1232,6 +1282,51 @@ GenerateExploitReconnectScript = function(computer, result, mLib, mem_addr, expl
 	if script_file then script_file.set_content(script_content.join(char(10)))
 
 	get_shell.build(script_path, current_path + "/zenora_scripts/" + ip_dir, 1)
+end function
+
+GenerateExploitTrojanScript = function(computer, rshell_ip, rshell_port, trojan_name) // R-Shell port 1222 is best
+	if not computer then
+		computer = get_shell.host_computer
+	end if
+	if not rshell_port then
+		rshell_port = 1222
+	end if
+	if not trojan_name then
+		trojan_name = "trojan"
+	end if
+	troj_dir = current_path + "/zenora_scripts/"
+	if not computer.File(troj_dir) then
+		computer.create_folder(current_path, "zenora_scripts")
+	end if
+	// Generate LOCAL trojan script - Put and run it on target pc for backdoor access (Needs R-Shell set up on your server - not main computer)
+	script_content = ["// Zenora Tool - Trojan Script",
+		"// R-Shell IP: " + rshell_ip,
+		"// R-Shell Port: " + rshell_port,
+		"// Trojan Name: " + trojan_name,
+		"// GeneratedOn: " + current_date,
+		"",
+		"pkg = get_custom_object",
+		"",
+		"if not pkg.hasIndex(""metaxploit"") then",
+		"	metaxploit = include_lib(""/lib/metaxploit.so"")",
+		"	if not metaxploit then metaxploit = include_lib(current_path + ""/metaxploit.so"")",
+		"	if not metaxploit then exit(""Cannot find metaxploit library in lib or current path folder."")",
+		"end if",
+		"",
+		"rshell_ip = """ + rshell_ip + """",
+		"trojan_name = """ + trojan_name + """",
+		"metaxploit.rshell_client(rshell_ip, " + rshell_port + ", trojan_name)"]
+
+	// Save script locally
+	script_path = troj_dir + trojan_name + ".src"
+	script_file = computer.File(script_path)
+	if not script_file then
+		computer.touch(troj_dir, trojan_name + ".src")
+		script_file = computer.File(script_path)
+	end if
+	if script_file then script_file.set_content(script_content.join(char(10)))
+
+	get_shell.build(script_path, troj_dir + trojan_name, 1)
 end function
 
 MainMenu = function() // MAIN MENU - FIRST MENU
